@@ -1,11 +1,16 @@
+import json
 import tempfile
 
 from pathlib import Path, PurePosixPath
 from typing import Dict, Optional
 from uuid import uuid4
 
+import ray
+
 from etl.config import settings
 from etl.database.database import PGDatabase
+from etl.messaging.kafka_producer import KafkaMessageProducer
+from etl.object_store.minio import MinioObjectStore
 from etl.toml_processor import TOMLProcessor
 from etl.file_processor_config import FileProcessorConfig, load_python_processor
 from etl.messaging.interfaces import MessageProducer
@@ -22,17 +27,46 @@ LOGGER = get_logger(__name__)
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
 
-
+@ray.remote
 class GeneralEventProcessor:
     """A class that is executed internal to an existing Ray actor to run a previously defined method"""
 
-    def __init__(self, object_store: ObjectStore, message_producer: MessageProducer, toml_processor: TOMLProcessor):
-        self._object_store = object_store
-        self._message_producer = message_producer
+    def __init__(self, toml_processor: TOMLProcessor):
+        self._message_producer = KafkaMessageProducer()
+        self._object_store = MinioObjectStore()
         self._toml_processor = toml_processor
         self._rest_client = create_rest_client()
         self._database = PGDatabase()
         self._database_active = False
+
+
+    async def checkForProcessingRecords(self):
+        # Check for database connection
+        if not self._database_active:
+            self._database_active = await self._database.create_table()
+            LOGGER.error(f"Database Status: {self._database_active}")
+
+        if self._database_active:
+            missed_files = await self._database.list_files(metadata={'status': 'Processing'})
+
+            LOGGER.error(f"Number of missed files: {len(missed_files)}")
+
+            for stalled_file in missed_files:
+                    # New object. "Rename" object.
+                    obj_path = Path(stalled_file['file_name'])
+                    dirpath = obj_path.parent
+                    filename = stalled_file['original_filename']
+                    new_path = f'01_inbox/{filename}'
+                    src_object_id = ObjectId(stalled_file['bucket_name'], stalled_file['file_name'])
+                    dest_object_id = ObjectId(stalled_file['bucket_name'], f'{new_path}')
+
+                    metadata = json.loads(stalled_file['metadata'])
+                    metadata.pop('originalFilename', None)
+
+                    LOGGER.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
+
+                    self._object_store.move_object(src_object_id, dest_object_id, metadata)
+
 
     async def process(self, evt_data: Dict) -> None:
         """Object event process entry point"""
@@ -81,7 +115,7 @@ class GeneralEventProcessor:
         :return: True if successful.
         """
         # pylint: disable=too-many-locals,too-many-branches, too-many-statements
-        LOGGER.error(f'received file put event for path {object_id}')
+        LOGGER.info(f'received file put event for path {object_id}')
 
         processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
         for config_object_id, processor in processor_dict.items():
@@ -95,7 +129,7 @@ class GeneralEventProcessor:
                 # File isn't in our inbox directory or filename doesn't match our glob pattern
                 continue
 
-            LOGGER.error(f'matching ETL processing config found, processing {config_object_id}')
+            LOGGER.info(f'matching ETL processing config found, processing {config_object_id}')
 
             # Hypothetical file paths for each directory
             processing_file = get_processing_path(config_object_id, processor, object_id)

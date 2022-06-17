@@ -10,9 +10,7 @@ from ray.actor import ActorHandle
 from etl.config import settings
 from etl.toml_processor import TOMLProcessor
 from etl.general_event_processor import GeneralEventProcessor
-from etl.messaging.kafka_producer import KafkaMessageProducer
 from etl.messaging.singleton import singleton
-from etl.object_store.minio import MinioObjectStore
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
@@ -39,7 +37,8 @@ class ConsumerWorkerManager:
         self.consumer_worker_container: List[ActorHandle] = []
         self.toml_processor = TOMLProcessor.remote()
         processor_list = ray.get(self.toml_processor.get_processors.remote())
-        LOGGER.error(f'Available processors length: {len(processor_list)}')
+        LOGGER.info(f'Available processors length: {len(processor_list)}')
+
 
     def stop_all_workers(self):
         for worker_name, worker_actors in self.consumer_worker_container.items():
@@ -54,12 +53,15 @@ class ConsumerWorkerManager:
 
     def start_all_workers(self):
         started_flag = False
+        initial_check_complete = False
 
+        LOGGER.info("Start all workers...")
         if len(self.consumer_worker_container) == 0:
             started_flag = True
             for _ in itertools.repeat(None, settings.num_workers):
                 worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor)
-                worker_actor.run.remote()
+                worker_actor.run.remote(initial_check_complete)
+                initial_check_complete = True
                 self.consumer_worker_container.append(worker_actor)
 
         if not started_flag:
@@ -75,11 +77,9 @@ class ConsumerWorker:
         self.auto_offset_reset = 'earliest'
         self.poll_timeout_ms = 1000
         self.is_closed = False
-        self.message_producer = KafkaMessageProducer()
-        self.object_store = MinioObjectStore()
         self.toml_processor = toml_processor
         # Configuration assumes 1 processor per Kafka consumer
-        self.general_event_processor = GeneralEventProcessor(object_store=self.object_store, message_producer=self.message_producer, toml_processor=toml_processor)
+        self.general_event_processor = GeneralEventProcessor.remote(toml_processor=toml_processor)
 
         self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000
         try:
@@ -94,29 +94,37 @@ class ConsumerWorker:
                                         max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
                                         consumer_timeout_ms=1000)
             self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            LOGGER.error(f'Started consumer worker...')
+            LOGGER.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
         except KafkaError as exc:
             LOGGER.error(f"Exception {exc}")
 
     def stop_consumer(self) -> None:
-        LOGGER.error(f'Stopping consumer worker...')
+        LOGGER.info(f'Stopping consumer worker...')
         self.stop_worker = True
 
         # waiting for consumer to stop nicely
         time.sleep(self.consumer_stop_delay_seconds)
-        LOGGER.error(f'Stopped consumer worker...')
+        LOGGER.info(f'Stopped consumer worker...')
 
     def closed(self):
         return self.is_closed
 
-    async def run(self) -> None:
-
+    def run(self, initial_check_complete) -> None:
+        # Have the first worker check for stalled files
+        if not initial_check_complete:
+            LOGGER.error("Checking for stalled files...")
+            try:
+                self.general_event_processor.checkForProcessingRecords.remote()
+            except Exception as e:
+                LOGGER.error(f"Error from file check: {e}")
+            
         while not self.stop_worker:
             records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms)
 
             if records_dict is None or len(records_dict.items()) == 0:
                 continue
             try:
+                LOGGER.error(f"Received messages: {len(records_dict.items())}")
 
                 for topic_partition, consumer_records in records_dict.items():
                     for record in consumer_records:
@@ -126,7 +134,7 @@ class ConsumerWorker:
                             self.toml_processor.process.remote(minio_record)
                         else:
                             # Executed in the context of this thread/remote.  
-                            await self.general_event_processor.process(minio_record)
+                            self.general_event_processor.process.remote(minio_record)
 
                 self.consumer.commit()
 

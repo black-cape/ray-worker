@@ -62,7 +62,11 @@ class PGDatabase(DatabaseStore):
     async def insert_file(self, filedata: FileObject):
         """ Track a new file from Minio"""
         LOGGER.info("Inserting file into DB...")
-        await self._database.insert('files', dict(filedata))
+        try:
+            await self._database.insert('files', dict(filedata))
+        except Exception:
+            await self._table_manager.update(filedata['id'], filedata)
+
 
     async def move_file(self, rowid: str, new_name: str):
         """ Track the moving of a file in Minio"""
