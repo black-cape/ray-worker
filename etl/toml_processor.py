@@ -1,5 +1,6 @@
 """Contains the implementation of the EventProcessor class"""
 import ray
+import re
 from typing import Dict, Optional
 
 from etl.config import settings
@@ -53,6 +54,14 @@ class TOMLProcessor:
             cfg: FileProcessorConfig = try_loads(data)
 
             if cfg.enabled:
+                if cfg.handled_file_glob:
+                    #Validate regex expression if provided
+                    try:
+                        re.compile(cfg.handled_file_glob)
+                    except re.error as e:
+                        LOGGER.error(f"Invalid regex provided.  Unable to register TOML.  Error: {e}")
+                        return False
+
                 # Register processor
                 self.processors[toml_object_id] = cfg
                 LOGGER.info('number of processor configs: %s', len(self.processors))
