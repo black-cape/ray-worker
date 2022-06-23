@@ -62,6 +62,8 @@ class GeneralEventProcessor:
 
                     metadata = json.loads(stalled_file['metadata'])
                     metadata.pop('originalFilename', None)
+                    metadata.pop('X-Amz-Meta-Originalfilename', None)
+                    metadata.pop('X-Amz-Meta-Id', None)
 
                     LOGGER.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
 
