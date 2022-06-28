@@ -67,7 +67,10 @@ class GeneralEventProcessor:
 
                     LOGGER.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
 
-                    self._object_store.move_object(src_object_id, dest_object_id, metadata)
+                    try:
+                        self._object_store.move_object(src_object_id, dest_object_id, metadata)
+                    except Exception as e:
+                        LOGGER.error(f"Error restoring file.  Possible database/Minio mismatch: {e}")
 
 
     async def process(self, evt_data: Dict) -> None:
