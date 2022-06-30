@@ -125,7 +125,7 @@ class ConsumerWorker:
                 time.sleep(5)
                 continue
             try:
-                LOGGER.error(f"Received messages: {len(records_dict.items())}")
+                LOGGER.info(f"Received messages: {len(records_dict.items())}")
 
                 for topic_partition, consumer_records in records_dict.items():
                     for record in consumer_records:
