@@ -24,20 +24,24 @@ $ curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-po
 ```bash
 $ poetry install
 ```
+## Configure Cast Iron (using Ray Worker)
+
+1. Retrieve the Cast Iron project (https://github.com/black-cape/cast-iron)
+1. Replace the Worker_Dockerfile with the one included in this project
 
 ## Start the Worker
 
 1. Add `127.0.0.1 kafka` entry to your /etc/hosts file
-1. Start the Cast-Iron ETL worker
+1. Start the Cast-Iron Ray-based ETL worker
     * Locally
     ```
     $ poetry shell
     $ uvicorn --host 0.0.0.0 --port 8080 etl.app_manager:app
     ```
       - To run with a debugger use `python worker.py`
-    * Docker
+    * Docker (with the Cast Iron Project)
     ```
-    $ docker-compose up --build
+    $ docker-compose -f docker-compose-single.yml up --build 
     ```
 
 ## Utlize the ETL
