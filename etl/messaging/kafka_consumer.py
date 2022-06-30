@@ -92,7 +92,7 @@ class ConsumerWorker:
                                         enable_auto_commit=settings.kafka_enable_auto_commit,
                                         max_poll_records=settings.kafka_max_poll_records,
                                         max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
-                                        consumer_timeout_ms=1000)
+                                        consumer_timeout_ms=30000)
             self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
             LOGGER.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
         except KafkaError as exc:
@@ -119,9 +119,10 @@ class ConsumerWorker:
                 LOGGER.error(f"Error from file check: {e}")
             
         while not self.stop_worker:
-            records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms)
+            records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms, max_records=1)
 
             if records_dict is None or len(records_dict.items()) == 0:
+                time.sleep(5)
                 continue
             try:
                 LOGGER.error(f"Received messages: {len(records_dict.items())}")
