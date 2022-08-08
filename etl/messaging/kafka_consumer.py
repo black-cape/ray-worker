@@ -13,6 +13,7 @@ from etl.general_event_processor import GeneralEventProcessor
 from etl.messaging.singleton import singleton
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
+import logging
 
 from etl.util import get_logger
 
@@ -81,6 +82,12 @@ class ConsumerWorker:
         # Configuration assumes 1 processor per Kafka consumer
         self.general_event_processor = GeneralEventProcessor.remote(toml_processor=toml_processor)
 
+        # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
+        # let the workers log to default Ray log organization
+        # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
+        self.logger = get_logger(__name__)
+
+
         self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000
         try:
             self.consumer = KafkaConsumer(bootstrap_servers=settings.kafka_broker,
@@ -94,17 +101,17 @@ class ConsumerWorker:
                                         max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
                                         consumer_timeout_ms=30000)
             self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            LOGGER.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
+            self.logger.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
         except KafkaError as exc:
-            LOGGER.error(f"Exception {exc}")
+            self.logger.error(f"Exception {exc}")
 
     def stop_consumer(self) -> None:
-        LOGGER.info(f'Stopping consumer worker...')
+        self.logger.info(f'Stopping consumer worker...')
         self.stop_worker = True
 
         # waiting for consumer to stop nicely
         time.sleep(self.consumer_stop_delay_seconds)
-        LOGGER.info(f'Stopped consumer worker...')
+        self.logger.info(f'Stopped consumer worker...')
 
     def closed(self):
         return self.is_closed
@@ -112,11 +119,11 @@ class ConsumerWorker:
     def run(self, initial_check_complete) -> None:
         # Have the first worker check for stalled files
         if not initial_check_complete:
-            LOGGER.error("Checking for stalled files...")
+            self.logger.error("Checking for stalled files...")
             try:
                 self.general_event_processor.checkForProcessingRecords.remote()
             except Exception as e:
-                LOGGER.error(f"Error from file check: {e}")
+                self.logger.error(f"Error from file check: {e}")
             
         while not self.stop_worker:
             records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms, max_records=1)
@@ -125,7 +132,7 @@ class ConsumerWorker:
                 time.sleep(5)
                 continue
             try:
-                LOGGER.info(f"Received messages: {len(records_dict.items())}")
+                self.logger.info(f"Received messages: {len(records_dict.items())}")
 
                 for topic_partition, consumer_records in records_dict.items():
                     for record in consumer_records:
@@ -144,7 +151,7 @@ class ConsumerWorker:
                     self.is_closed = True
                     break
             except BaseException as e:
-                LOGGER.error('Error while running consumer worker!')
-                LOGGER.error(e, exc_info=True)
+                self.logger.error('Error while running consumer worker!')
+                self.logger.error(e, exc_info=True)
 
 

@@ -10,6 +10,9 @@ from requests.sessions import Session
 
 from etl.config import settings
 
+#this has to be set once
+configured_logging_level = getattr(logging, settings.log_level.upper(), None)
+logging.basicConfig(level=configured_logging_level)
 
 def short_uuid() -> str:
     """Creates a short unique ID string"""
@@ -22,12 +25,8 @@ def process_file_stub(data: str, **kwargs):
 
 
 def get_logger(name: str) -> logging.Logger:
-    log_level = settings.log_level
-    numeric_level = getattr(logging, log_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f'Invalid log level: {log_level}')
     logger = logging.getLogger(name)
-    logger.setLevel(numeric_level)
+    logger.setLevel(configured_logging_level)
     return logger
 
 

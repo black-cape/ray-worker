@@ -1,0 +1,88 @@
+version: '3.8'
+
+# included for testing against Ray-Worker only
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "localhost", "2181"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: on-failure
+
+  # Message Queues
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_CREATE_TOPICS: "greetings:1:1,castiron_etl_config:1:1,castiron_etl_source_file:4:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "localhost", "9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: on-failure
+
+  # Object Storage
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: castiron
+      MINIO_ROOT_PASSWORD: castiron
+      #for more information see https://docs.min.io/docs/minio-bucket-notification-guide.html#apache-kafka
+      #the following represent two sets of configs for two separate MINIO notification ARN
+      MINIO_NOTIFY_KAFKA_BROKERS_config: kafka:9092
+      MINIO_NOTIFY_KAFKA_ENABLE_config: 'on'
+      MINIO_NOTIFY_KAFKA_TOPIC_config: castiron_etl_config
+      MINIO_NOTIFY_KAFKA_BROKERS_source: kafka:9092
+      MINIO_NOTIFY_KAFKA_ENABLE_source: 'on'
+      MINIO_NOTIFY_KAFKA_TOPIC_source: castiron_etl_source_file
+    entrypoint: /usr/bin/docker-entrypoint.sh server /data --console-address :9001
+    ports:
+      - "9001:9001"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 20s
+      start_period: 10s
+      retries: 3
+    restart: on-failure
+
+  # Workflow Tracking
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: castiron
+      POSTGRES_USER: castiron
+      PGDATA: /data
+
+  ray_cast_iron_worker:
+    build:
+      context: .
+    container_name: ray-cast-iron-worker
+    environment:
+      CONSUMER_GRP_ETL_CONFIG: etl_config_consumer_grp1
+      MINIO_HOST: minio:9000
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: always

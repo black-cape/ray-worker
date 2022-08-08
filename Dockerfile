@@ -17,10 +17,6 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-
 # Copy using poetry.lock* in case it doesn't exist yet
 COPY ./pyproject.toml ./poetry.lock* /app/
 
-# Copy logging configuration and create logs dir
-COPY logging.conf /app/
-RUN mkdir -p /app/logs
-
 # Install dependencies
 RUN poetry install --no-root --no-dev
 
