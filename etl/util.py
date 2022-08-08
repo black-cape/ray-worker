@@ -10,6 +10,8 @@ from requests.sessions import Session
 
 from etl.config import settings
 
+#this has to be set once
+logging.basicConfig(level=logging.INFO)
 
 def short_uuid() -> str:
     """Creates a short unique ID string"""

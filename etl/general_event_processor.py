@@ -38,7 +38,6 @@ class GeneralEventProcessor:
         # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
-        logging.basicConfig(level=logging.INFO)
         self.logger = get_logger(__name__)
 
 
