@@ -4,12 +4,8 @@ import ray
 from fastapi import FastAPI
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from etl.config import settings
 from etl.messaging.kafka_consumer import ConsumerWorkerManager
 from etl.util import get_logger
-
-logging.config.fileConfig(settings.logging_conf_file)
 
 LOGGER = get_logger(__name__)
 

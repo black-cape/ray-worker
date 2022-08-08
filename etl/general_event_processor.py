@@ -1,6 +1,6 @@
 import json
+import logging
 import tempfile
-
 from pathlib import Path, PurePosixPath
 from typing import Dict, Optional
 from uuid import uuid4
@@ -9,21 +9,18 @@ import ray
 
 from etl.config import settings
 from etl.database.database import PGDatabase
-from etl.messaging.kafka_producer import KafkaMessageProducer
-from etl.object_store.minio import MinioObjectStore
-from etl.toml_processor import TOMLProcessor
 from etl.file_processor_config import FileProcessorConfig, load_python_processor
-from etl.messaging.interfaces import MessageProducer
-from etl.object_store.interfaces import EventType, ObjectStore
+from etl.messaging.kafka_producer import KafkaMessageProducer
+from etl.object_store.interfaces import EventType
+from etl.object_store.minio import MinioObjectStore
 from etl.object_store.object_id import ObjectId
 from etl.path_helpers import (filename, get_archive_path, get_error_path,
                               get_inbox_path, get_processing_path, parent,
                               processor_matches, rename)
-from etl.util import create_rest_client, get_logger, short_uuid
 from etl.pizza_tracker import PizzaTracker
+from etl.toml_processor import TOMLProcessor
+from etl.util import create_rest_client, short_uuid
 
-
-LOGGER = get_logger(__name__)
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
 
@@ -38,18 +35,23 @@ class GeneralEventProcessor:
         self._rest_client = create_rest_client()
         self._database = PGDatabase()
         self._database_active = False
+        # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
+        # let the workers log to default Ray log organization
+        # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
 
     async def checkForProcessingRecords(self):
         # Check for database connection
         if not self._database_active:
             self._database_active = await self._database.create_table()
-            LOGGER.error(f"Database Status: {self._database_active}")
+            self.logger.error(f"Database Status: {self._database_active}")
 
         if self._database_active:
             missed_files = await self._database.list_files(metadata={'status': 'Processing'})
 
-            LOGGER.error(f"Number of missed files: {len(missed_files)}")
+            self.logger.error(f"Number of missed files: {len(missed_files)}")
 
             for stalled_file in missed_files:
                     # New object. "Rename" object.
@@ -65,12 +67,12 @@ class GeneralEventProcessor:
                     metadata.pop('X-Amz-Meta-Originalfilename', None)
                     metadata.pop('X-Amz-Meta-Id', None)
 
-                    LOGGER.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
+                    self.logger.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
 
                     try:
                         self._object_store.move_object(src_object_id, dest_object_id, metadata)
                     except Exception as e:
-                        LOGGER.error(f"Error restoring file.  Possible database/Minio mismatch: {e}")
+                        self.logger.error(f"Error restoring file.  Possible database/Minio mismatch: {e}")
 
 
     async def process(self, evt_data: Dict) -> None:
@@ -97,7 +99,7 @@ class GeneralEventProcessor:
                             try:
                                 await self._database.insert_file(db_evt)
                             except Exception as e:
-                                LOGGER.error(f'Database error.  Unable to process/track file.  Exception: {e}')
+                                self.logger.error(f'Database error.  Unable to process/track file.  Exception: {e}')
                         await self._file_put(evt.object_id, db_evt.get('id', None))
                 else:
                     # New object. "Rename" object.
@@ -120,7 +122,7 @@ class GeneralEventProcessor:
         :return: True if successful.
         """
         # pylint: disable=too-many-locals,too-many-branches, too-many-statements
-        LOGGER.info(f'received file put event for path {object_id}')
+        self.logger.info(f'received file put event for path {object_id}')
 
         processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
         for config_object_id, processor in processor_dict.items():
@@ -134,7 +136,7 @@ class GeneralEventProcessor:
                 # File isn't in our inbox directory or filename doesn't match our glob pattern
                 continue
 
-            LOGGER.info(f'matching ETL processing config found, processing {config_object_id}')
+            self.logger.info(f'matching ETL processing config found, processing {config_object_id}')
 
             # Hypothetical file paths for each directory
             processing_file = get_processing_path(config_object_id, processor, object_id)
@@ -177,14 +179,14 @@ class GeneralEventProcessor:
                     try:
                         results = run_method(*(str(local_data_file),), **method_kwargs)
                     except Exception as e:
-                        LOGGER.error(f"Error response from configured processor {processor.python}: {e}")
+                        self.logger.error(f"Error response from configured processor {processor.python}: {e}")
                         success = False
 
                     # [WS] check once here to avoid spamming logs
                     if processor.python.supports_pizza_tracker:
-                        LOGGER.debug('processor supports pizza tracker, will start tracker process')
+                        self.logger.debug('processor supports pizza tracker, will start tracker process')
                     else:
-                        LOGGER.warning(f'processor {config_object_id} does not support pizza tracker')
+                        self.logger.warning(f'processor {config_object_id} does not support pizza tracker')
 
                     if success:
                         # Success. mv to archive
@@ -209,7 +211,7 @@ class GeneralEventProcessor:
                                                              metadata=metadata)
 
                 # Success or not, we handled this
-                LOGGER.info(f'finished processing {object_id}')
+                self.logger.info(f'finished processing {object_id}')
                 return True
 
         # Not our table
