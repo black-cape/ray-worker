@@ -38,9 +38,7 @@ class Settings(BaseSettings):
 
     minio_notification_arn_etl_config: str = 'arn:minio:sqs::config:kafka'
     minio_notification_arn_etl_source_file: str = 'arn:minio:sqs::source:kafka'
-
-    logging_conf_file: str = 'logging.conf'
-    log_level: str = 'debug'
+    log_level: str = 'info'
 
     # Tika service settings
     connection_params: Optional[Dict]

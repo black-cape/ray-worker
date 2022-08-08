@@ -86,7 +86,7 @@ class ConsumerWorker:
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
 
         self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000

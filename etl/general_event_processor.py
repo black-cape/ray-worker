@@ -19,7 +19,7 @@ from etl.path_helpers import (filename, get_archive_path, get_error_path,
                               processor_matches, rename)
 from etl.pizza_tracker import PizzaTracker
 from etl.toml_processor import TOMLProcessor
-from etl.util import create_rest_client, short_uuid
+from etl.util import create_rest_client, short_uuid, get_logger
 
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
@@ -39,7 +39,7 @@ class GeneralEventProcessor:
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
 
     async def checkForProcessingRecords(self):

@@ -11,6 +11,7 @@ from etl.object_store.interfaces import EventType
 from etl.object_store.minio import MinioObjectStore
 from etl.object_store.object_id import ObjectId
 from etl.path_helpers import (get_archive_path, get_error_path, get_inbox_path, get_processing_path)
+from etl.util import get_logger
 
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
@@ -26,7 +27,7 @@ class TOMLProcessor:
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
         logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
         # Load existing config files
         for obj in self._object_store.list_objects(settings.minio_etl_bucket, None, recursive=True):
