@@ -20,11 +20,6 @@ class ClickHouseDatabase(DatabaseStore):
         """ Track a new file from Minio"""
         try:
             sql = f'INSERT INTO cast_iron_file_status ({",".join(FileObject.__fields__.keys())}) VALUES'
-
-            print('YOYO 2')
-            print(sql)
-            print(filedata.dict())
-
             await self.client.execute(sql, [filedata.dict()])
 
         except Exception as exc:
@@ -92,7 +87,8 @@ class ClickHouseDatabase(DatabaseStore):
             bucket_name=bucket_name,
             file_name=file_name,
             status='Queued',
-            original_filename=metadata.get('X-Amz-Meta-Originalfilename', None) if metadata else None,
+            original_filename=metadata.get('X-Amz-Meta-Originalfilename', None),
+            mission_id=metadata.get('X-Amz-Meta-Mission_id', None),
             event_name=evt_data['EventName'],
             source_ip=evt_data['Records'][0]['requestParameters']['sourceIPAddress'],
             size=evt_data['Records'][0]['s3']['object']['size'],
@@ -101,7 +97,7 @@ class ClickHouseDatabase(DatabaseStore):
             created_dt=datetime.now(),
             updated_dt=datetime.now(),
             metadata=json.dumps(metadata),
-            user_dn=metadata.get('X-Amz-Owner_dn', None),
+            user_dn=metadata.get('X-Amz-Meta-Owner_dn', None),
             classification=classification_meta_obj_minio.get('classification', settings.user_system_default_classification),
             owner_producer=classification_meta_obj_minio.get('owner_producer', None),
             sci_controls=classification_meta_obj_minio.get('sci_controls', []),

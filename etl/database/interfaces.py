@@ -13,6 +13,7 @@ class FileObject(BaseModel):
     file_name: str
     status: Optional[str] = None
     original_filename: str
+    mission_id: Optional[str] = None
     event_name: Optional[str] = None
     source_ip: Optional[str] = None
     size: Optional[int] = None
