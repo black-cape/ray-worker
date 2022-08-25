@@ -9,7 +9,7 @@ import ray
 
 from etl.config import settings
 from etl.database.database import ClickHouseDatabase
-from etl.database.interfaces import FileObject
+from etl.database.interfaces import FileObject, STATUS_FAILED, STATUS_PROCESSING, STATUS_SUCCESS
 from etl.file_processor_config import FileProcessorConfig, load_python_processor
 from etl.messaging.kafka_producer import KafkaMessageProducer
 from etl.object_store.interfaces import EventType
@@ -23,12 +23,6 @@ from etl.toml_processor import TOMLProcessor
 from etl.util import create_rest_client, short_uuid, get_logger
 
 ERROR_LOG_SUFFIX = '_error_log_.txt'
-
-#status that the file go thru
-STATUS_PROCESSING = 'Processing'
-STATUS_SUCCESS = 'Success'
-STATUS_FAILED = 'Failed'
-
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
 
 @ray.remote

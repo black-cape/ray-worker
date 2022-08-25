@@ -6,7 +6,7 @@ from typing import Any, Optional, List
 from aioch import Client
 
 from etl.config import settings
-from etl.database.interfaces import DatabaseStore, FileObject
+from etl.database.interfaces import DatabaseStore, FileObject, STATUS_QUEUED
 from etl.util import get_logger
 
 LOGGER = get_logger(__name__)
@@ -86,7 +86,7 @@ class ClickHouseDatabase(DatabaseStore):
             id=metadata.get('X-Amz-Meta-Id', None),
             bucket_name=bucket_name,
             file_name=file_name,
-            status='Queued',
+            status=STATUS_QUEUED, #everything starts out queued
             original_filename=metadata.get('X-Amz-Meta-Originalfilename', None),
             mission_id=metadata.get('X-Amz-Meta-Mission_id', None),
             event_name=evt_data['EventName'],

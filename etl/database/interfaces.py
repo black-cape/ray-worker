@@ -4,6 +4,11 @@ from typing import Any, Dict, List, Optional
 from etl.config import settings
 from pydantic import BaseModel, Field
 
+#status that the file go thru
+STATUS_QUEUED = 'Queued'
+STATUS_PROCESSING = 'Processing'
+STATUS_SUCCESS = 'Complete'
+STATUS_FAILED = 'Failed'
 
 class FileObject(BaseModel):
     # keep this in sync with Clickhouse schema used to track file status
