@@ -12,10 +12,9 @@ pydantic = "^1.9.0"
 fastapi = "^0.77.1"
 toml = "^0.10.2"
 minio = "^7.1.8"
-asyncpg = "^0.25.0"
-asyncpg-utils = "^0.6.0"
 uvicorn = "^0.17.6"
 psutil = "^5.9.0"
+aioch = "^0.0.2"
 
 [tool.poetry.dev-dependencies]
 

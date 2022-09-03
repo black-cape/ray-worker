@@ -13,8 +13,6 @@ from etl.general_event_processor import GeneralEventProcessor
 from etl.messaging.singleton import singleton
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-import logging
-
 from etl.util import get_logger
 
 LOGGER = get_logger(__name__)
@@ -34,6 +32,9 @@ LOGGER.info('''This cluster consists of
 
 @singleton
 class ConsumerWorkerManager:
+    '''
+    initialized via FAST API life cycle methods to spin up and down Ray workers, see etl/app_manager for more details
+    '''
     def __init__(self):
         self.consumer_worker_container: List[ActorHandle] = []
         self.toml_processor = TOMLProcessor.remote()
@@ -117,6 +118,9 @@ class ConsumerWorker:
         return self.is_closed
 
     def run(self, initial_check_complete) -> None:
+        '''
+        handles processing of either TOML config files or general data files
+        '''
         # Have the first worker check for stalled files
         if not initial_check_complete:
             self.logger.error("Checking for stalled files...")
@@ -132,8 +136,6 @@ class ConsumerWorker:
                 time.sleep(5)
                 continue
             try:
-                self.logger.info(f"Received messages: {len(records_dict.items())}")
-
                 for topic_partition, consumer_records in records_dict.items():
                     for record in consumer_records:
                         minio_record = record.value

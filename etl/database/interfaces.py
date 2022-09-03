@@ -1,28 +1,43 @@
-"""Describes interface for sending messages to a message broker"""
 import abc
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from etl.config import settings
+from pydantic import BaseModel, Field
 
+#status that the file go thru
+STATUS_QUEUED = 'Queued'
+STATUS_PROCESSING = 'Processing'
+STATUS_SUCCESS = 'Complete'
+STATUS_FAILED = 'Failed'
 
-@dataclass
-class FileObject:
-    """Represents an implementation-neutral file event"""
+class FileObject(BaseModel):
+    # keep this in sync with Clickhouse schema used to track file status
+    # since we use built in pydantic functions to build query
     id: str
     bucket_name: str
     file_name: str
-    status: str
-    processing_status: str
+    status: Optional[str] = None
     original_filename: str
-    event_name: str
-    source_ip: str
-    size: int
-    etag: str
-    content_type: str
-    create_datetime: datetime
-    update_datetime: datetime
-    classification: str
-    metadata: str
+    mission_id: Optional[str] = None
+    event_name: Optional[str] = None
+    source_ip: Optional[str] = None
+    size: Optional[int] = None
+    etag: Optional[str] = None
+    content_type: Optional[str] = None
+    created_dt: datetime
+    updated_dt: Optional[datetime] = None
+    metadata: Optional[str] = None
+    user_dn: Optional[str] = None
+    classification: str = settings.user_system_default_classification
+    owner_producer: Optional[str] = None
+    sci_controls: List[str] = Field(default_factory=list, logical_and=True)
+    sar_identifier: List[str] = Field(default_factory=list, logical_and=True)
+    atomic_energy_control: Optional[str] = None
+    dissemination_controls: List[str] = Field(default_factory=list)
+    fgi_source_open: Optional[str] = None
+    fgi_source_protected: Optional[str] = None
+    releasable_to: List[str] = Field(default_factory=list)
+    non_ic_markings: List[str] = Field(default_factory=list)
 
 
 class DatabaseStore(abc.ABC):
@@ -34,35 +49,22 @@ class DatabaseStore(abc.ABC):
         """
         raise NotImplementedError
 
-    async def move_file(self, rowid: str, new_name: str) -> None:
-        """Rename a file record
-        :param id: The id
-        :param newName: New path value
-        """
+    async def update_status_by_fileName(self, filename: str, new_status: str) -> None:
+        # Update a file record status by filename
         raise NotImplementedError
 
-    async def update_status(self, rowid: str, new_status: str, new_filename: str) -> None:
-        """Rename a file record
-        :param id: The id
-        :param newStatus: New status value
-        """
+    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str) -> None:
+        # Update a file record status and file name
         raise NotImplementedError
 
     async def delete_file(self, rowid: str) -> None:
         """Delete a record
-        :param id: The id
+        :param id: The data base id
         """
         raise NotImplementedError
 
-    async def list_files(self, metadata: Optional[Dict]) -> List[Dict]:
-        """Retrieve records based metadata criteria
-        :param metadata: Dict containing query restrictions
-        """
-        raise NotImplementedError
-
-    async def retrieve_file_metadata(self, rowid: str) -> Dict:
-        """Retrieve a row based on ID
-        :param id: The id
+    async def query(self, status: Optional[str] = None) -> List[FileObject]:
+        """Retrieve records based on query params
         """
         raise NotImplementedError
 

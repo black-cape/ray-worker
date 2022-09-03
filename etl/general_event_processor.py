@@ -1,14 +1,15 @@
 import json
-import logging
 import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Dict, Optional
 from uuid import uuid4
+from typing import List
 
 import ray
 
 from etl.config import settings
-from etl.database.database import PGDatabase
+from etl.database.database import ClickHouseDatabase
+from etl.database.interfaces import FileObject, STATUS_FAILED, STATUS_PROCESSING, STATUS_SUCCESS
 from etl.file_processor_config import FileProcessorConfig, load_python_processor
 from etl.messaging.kafka_producer import KafkaMessageProducer
 from etl.object_store.interfaces import EventType
@@ -33,8 +34,7 @@ class GeneralEventProcessor:
         self._object_store = MinioObjectStore()
         self._toml_processor = toml_processor
         self._rest_client = create_rest_client()
-        self._database = PGDatabase()
-        self._database_active = False
+        self._database = ClickHouseDatabase()
         # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
@@ -42,67 +42,55 @@ class GeneralEventProcessor:
 
 
     async def checkForProcessingRecords(self):
-        # Check for database connection
-        if not self._database_active:
-            self._database_active = await self._database.create_table()
-            self.logger.error(f"Database Status: {self._database_active}")
+        missed_files:Optional[List[FileObject]] = await self._database.query(status=STATUS_PROCESSING)
 
-        if self._database_active:
-            missed_files = await self._database.list_files(metadata={'status': 'Processing'})
-
+        if missed_files:
             self.logger.error(f"Number of missed files: {len(missed_files)}")
 
             for stalled_file in missed_files:
                     # New object. "Rename" object.
-                    obj_path = Path(stalled_file['file_name'])
-                    dirpath = obj_path.parent
-                    filename = stalled_file['original_filename']
+                    filename = stalled_file.original_filename
                     new_path = f'01_inbox/{filename}'
-                    src_object_id = ObjectId(stalled_file['bucket_name'], stalled_file['file_name'])
-                    dest_object_id = ObjectId(stalled_file['bucket_name'], f'{new_path}')
+                    src_object_id = ObjectId(stalled_file.bucket_name, stalled_file.file_name)
+                    dest_object_id = ObjectId(stalled_file.bucket_name, f'{new_path}')
 
-                    metadata = json.loads(stalled_file['metadata'])
+                    metadata = json.loads(stalled_file.metadata)
                     metadata.pop('originalFilename', None)
                     metadata.pop('X-Amz-Meta-Originalfilename', None)
                     metadata.pop('X-Amz-Meta-Id', None)
 
-                    self.logger.error(f"Moving file: {stalled_file['file_name']} back to original filename: {new_path} to restart processing...")
+                    self.logger.error(f"Moving file: {stalled_file.file_name} back to original filename: {new_path} to restart processing...")
 
                     try:
                         self._object_store.move_object(src_object_id, dest_object_id, metadata)
+                        await self._database.delete_file(rowid=stalled_file.id)
                     except Exception as e:
                         self.logger.error(f"Error restoring file.  Possible database/Minio mismatch: {e}")
 
 
     async def process(self, evt_data: Dict) -> None:
         """Object event process entry point"""
-
-        # Check for database connection
-        if not self._database_active:
-            self._database_active = await self._database.create_table()
-        db_evt = {}
-
         evt = self._object_store.parse_notification(evt_data)
         # this processor would get TOML config as well as regular file upload, there doesn't seem to be a way
         # to filter bucket notification to exclude by file path
         if any([evt.object_id.path.endswith(i) for i in file_suffix_to_ignore]):
             pass
         else:
+            obj_path = Path(evt.object_id.path)
             if evt.event_type == EventType.Delete:
+                #even a object rename is equivalent to a delete and re-insert, if we set status delete each time this
+                #occurs we might get status out of sync, for example a move and processing both attempt to set the status
+                #and we can end up with status "Deleted" even if it really should be processed
                 pass
             elif evt.event_type == EventType.Put:
                 if evt.original_filename:
                     if not evt.event_status:
-                        if self._database_active:
-                            db_evt = self._database.parse_notification(evt_data)
-                            try:
-                                await self._database.insert_file(db_evt)
-                            except Exception as e:
-                                self.logger.error(f'Database error.  Unable to process/track file.  Exception: {e}')
-                        await self._file_put(evt.object_id, db_evt.get('id', None))
+                        self.logger.info(f'a file is renamed and placed back in Minio again at {obj_path}, renaming file')
+                        db_evt:FileObject = self._database.parse_notification(evt_data)
+                        await self._database.insert_file(db_evt)
+                        await self._file_put(evt.object_id, db_evt.id)
                 else:
-                    # New object. "Rename" object.
-                    obj_path = Path(evt.object_id.path)
+                    self.logger.info(f'new file drop detected at {obj_path}, renaming file')
                     dirpath = obj_path.parent
                     filename = obj_path.name
                     obj_uuid = str(uuid4())
@@ -117,7 +105,7 @@ class GeneralEventProcessor:
 
 
     async def _file_put(self, object_id: ObjectId, uuid: str) -> bool:
-        """Handle possible data file puts.
+        """Handle possible data file puts, look for matching toml processor to process it
         :return: True if successful.
         """
         # pylint: disable=too-many-locals,too-many-branches, too-many-statements
@@ -149,10 +137,9 @@ class GeneralEventProcessor:
 
             # mv to processing
             metadata = self._object_store.retrieve_object_metadata(object_id)
-            metadata['status'] = 'Processing'
+            metadata['status'] = STATUS_PROCESSING
             self._object_store.move_object(object_id, processing_file, metadata)
-            if self._database_active:
-                await self._database.update_status(uuid, 'Processing', processing_file.path)
+            await self._database.update_status_and_fileName(uuid, STATUS_PROCESSING, processing_file.path)
 
             with tempfile.TemporaryDirectory() as work_dir:
                 # Download to local temp working directory
@@ -162,8 +149,6 @@ class GeneralEventProcessor:
 
                 with open(base_path / 'out.txt', 'w') as out, \
                         PizzaTracker(self._message_producer, work_dir, job_id) as pizza_tracker:
-
-                    success = True
 
                     # pizza tracker has to be called in main thread as it needs things like Kafka connector
                     run_method = load_python_processor(processor.python)
@@ -176,7 +161,7 @@ class GeneralEventProcessor:
 
                     success = True
                     try:
-                        results = run_method(*(str(local_data_file),), **method_kwargs)
+                        run_method(*(str(local_data_file),), **method_kwargs)
                     except Exception as e:
                         self.logger.error(f"Error response from configured processor {processor.python}: {e}")
                         success = False
@@ -190,17 +175,20 @@ class GeneralEventProcessor:
                     if success:
                         # Success. mv to archive
                         if archive_file:
-                            metadata['status'] = 'Success'
+                            metadata['status'] = STATUS_SUCCESS
                             self._object_store.move_object(processing_file, archive_file, metadata)
-                        if self._database_active:
-                            await self._database.update_status(uuid, 'Success', archive_file.path)
+
+                            await self._database.update_status_and_fileName(uuid, STATUS_SUCCESS, archive_file.path)
+                            self.logger.info(f'file processing success, moving to archive {archive_file.path}')
+
                         self._message_producer.job_evt_status(job_id, 'success')
                     else:
                         # Failure. mv to failed
-                        metadata['status'] = 'Failed'
+                        metadata['status'] = STATUS_FAILED
                         self._object_store.move_object(processing_file, error_file, metadata)
-                        if self._database_active:
-                            await self._database.update_status(uuid, 'Failed', error_file.path)
+
+                        self.logger.warn(f'file processing failed, moving to error location {error_file.pat}')
+                        await self._database.update_status_and_fileName(uuid, STATUS_FAILED, error_file.path)
                         self._message_producer.job_evt_status(job_id, 'failure')
 
                         # Optionally save error log to failed, use same metadata as original file
