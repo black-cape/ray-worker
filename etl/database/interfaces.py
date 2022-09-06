@@ -50,13 +50,11 @@ class DatabaseStore(abc.ABC):
         """
         raise NotImplementedError
 
-    async def update_status_by_fileName(self, filename: str,
-                                        new_status: str) -> None:
+    async def update_status_by_fileName(self, filename: str, new_status: str) -> None:
         # Update a file record status by filename
         raise NotImplementedError
 
-    async def update_status_and_fileName(self, rowid: str, new_status: str,
-                                         new_filename: str) -> None:
+    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str) -> None:
         # Update a file record status and file name
         raise NotImplementedError
 

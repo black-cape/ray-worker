@@ -39,8 +39,7 @@ def test_python_try_loads():
     assert "03_archive" == actual.archive_dir
     assert "04_failed" == actual.error_dir
     assert actual.shell is None
-    assert actual.python is not None and isinstance(actual.python,
-                                                    PythonProcessorConfig)
+    assert actual.python is not None and isinstance(actual.python, PythonProcessorConfig)
 
     caught_value_error = False
     try:

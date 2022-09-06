@@ -7,8 +7,7 @@ from etl.pizza_tracker import PizzaTracker
 
 class MockMessageProducer(MessageProducer):
 
-    def job_created(self, job_id: str, filename: str, handler: str,
-                    uploader: str) -> None:
+    def job_created(self, job_id: str, filename: str, handler: str, uploader: str) -> None:
         raise NotImplementedError
 
     def job_evt_task(self, job_id: str, task: str) -> None:

@@ -1,7 +1,6 @@
 from unittest import TestCase
 
-from etl.file_processor_config import (PythonProcessorConfig,
-                                       load_python_processor)
+from etl.file_processor_config import (PythonProcessorConfig, load_python_processor)
 
 
 class TestLoadPythonprocessor(TestCase):

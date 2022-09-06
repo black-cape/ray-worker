@@ -22,9 +22,7 @@ def short_uuid() -> str:
 
 def process_file_stub(data: str, **kwargs):
     """A do-nothing-method to use as an example for the Python process config"""
-    print(
-        f'Received the data file {data} and the named arguments {kwargs}. Doing nothing.'
-    )
+    print(f'Received the data file {data} and the named arguments {kwargs}. Doing nothing.')
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -47,11 +45,13 @@ class RestClient:
     Will handle authentication and setting up common request resources.
     """
 
-    def __init__(self,
-                 client_cert: Tuple[str, str],
-                 connection_url: Optional[str] = None,
-                 ca_cert: Optional[str] = None,
-                 verify_ca: bool = True):
+    def __init__(
+        self,
+        client_cert: Tuple[str, str],
+        connection_url: Optional[str] = None,
+        ca_cert: Optional[str] = None,
+        verify_ca: bool = True
+    ):
         self.session = Session()
         if connection_url and not verify_ca:
             self.session.mount(connection_url, IgnoreHostnameVerification())
@@ -77,8 +77,8 @@ def create_rest_client() -> RestClient:
     client_key = settings.client_key
 
     rest_client = RestClient(
-        client_cert=(client_cert,
-                     client_key) if client_cert and client_key else None,
-        **(connection_params if connection_params else {}))
+        client_cert=(client_cert, client_key) if client_cert and client_key else None,
+        **(connection_params if connection_params else {})
+    )
 
     return rest_client
