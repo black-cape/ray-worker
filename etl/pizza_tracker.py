@@ -14,7 +14,9 @@ class PizzaTracker:
     """
     Represents one status notification processor
     """
-    def __init__(self, message_producer: MessageProducer, working_dir: str, job_id: str):
+
+    def __init__(self, message_producer: MessageProducer, working_dir: str,
+                 job_id: str):
         self.working_dir = working_dir
         self.message_producer = message_producer
         self.job_id = job_id
@@ -70,16 +72,18 @@ class PizzaTracker:
                     pass
 
         if progress is not None and 0.0 <= progress <= 1.0:
-            logger.debug('pizza tracker is logging progress to kafka. job_id: %s, progress: %s',
-            self.job_id, progress)
+            logger.debug(
+                'pizza tracker is logging progress to kafka. job_id: %s, progress: %s',
+                self.job_id, progress)
             self.message_producer.job_evt_progress(self.job_id, progress)
 
     def __enter__(self):
         os.mkfifo(self.pipe_file_name)
         self.f_pipe = TextIOWrapper(
-            BufferedReader(FileIO(os.open(self.pipe_file_name,
-                                          os.O_RDONLY | os.O_NONBLOCK), mode='r'))
-        )
+            BufferedReader(
+                FileIO(os.open(self.pipe_file_name,
+                               os.O_RDONLY | os.O_NONBLOCK),
+                       mode='r')))
         return self
 
     def __exit__(self, type_, value, error):

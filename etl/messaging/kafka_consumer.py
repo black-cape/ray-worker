@@ -27,7 +27,8 @@ else:
 LOGGER.info('''This cluster consists of
     {} nodes in total
     {} CPU resources in total
-'''.format(len(ray.nodes()), ray.cluster_resources()['CPU']))
+'''.format(len(ray.nodes()),
+           ray.cluster_resources()['CPU']))
 
 
 @singleton
@@ -35,15 +36,16 @@ class ConsumerWorkerManager:
     '''
     initialized via FAST API life cycle methods to spin up and down Ray workers, see etl/app_manager for more details
     '''
+
     def __init__(self):
         self.consumer_worker_container: List[ActorHandle] = []
         self.toml_processor = TOMLProcessor.remote()
         processor_list = ray.get(self.toml_processor.get_processors.remote())
         LOGGER.info(f'Available processors length: {len(processor_list)}')
 
-
     def stop_all_workers(self):
-        for worker_name, worker_actors in self.consumer_worker_container.items():
+        for worker_name, worker_actors in self.consumer_worker_container.items(
+        ):
             for worker_actor in worker_actors:
                 # wait on the future to stop the consumers
                 ray.get(worker_actor.stop_consumer.remote())
@@ -61,7 +63,8 @@ class ConsumerWorkerManager:
         if len(self.consumer_worker_container) == 0:
             started_flag = True
             for _ in itertools.repeat(None, settings.num_workers):
-                worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor)
+                worker_actor: ActorHandle = ConsumerWorker.remote(
+                    self.toml_processor)
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
                 self.consumer_worker_container.append(worker_actor)
@@ -71,8 +74,10 @@ class ConsumerWorkerManager:
         LOGGER.info("All consumer workers started.")
 
 
-@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
+@ray.remote(max_restarts=settings.max_restarts,
+            max_task_retries=settings.max_retries)
 class ConsumerWorker:
+
     def __init__(self, toml_processor: TOMLProcessor):
         self.consumer_name = settings.consumer_grp_etl_source_file
         self.stop_worker = False
@@ -81,28 +86,34 @@ class ConsumerWorker:
         self.is_closed = False
         self.toml_processor = toml_processor
         # Configuration assumes 1 processor per Kafka consumer
-        self.general_event_processor = GeneralEventProcessor.remote(toml_processor=toml_processor)
+        self.general_event_processor = GeneralEventProcessor.remote(
+            toml_processor=toml_processor)
 
         # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
         # let the workers log to default Ray log organization
         # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
         self.logger = get_logger(__name__)
 
-
         self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000
         try:
-            self.consumer = KafkaConsumer(bootstrap_servers=settings.kafka_broker,
-                                        client_id=str(uuid.uuid4()),
-                                        group_id=self.consumer_name,
-                                        key_deserializer=lambda k: k.decode('utf-8') if k is not None else k,
-                                        value_deserializer=lambda v: json.loads(v) if v is not None else v,
-                                        auto_offset_reset=self.auto_offset_reset,
-                                        enable_auto_commit=settings.kafka_enable_auto_commit,
-                                        max_poll_records=settings.kafka_max_poll_records,
-                                        max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
-                                        consumer_timeout_ms=30000)
-            self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            self.logger.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
+            self.consumer = KafkaConsumer(
+                bootstrap_servers=settings.kafka_broker,
+                client_id=str(uuid.uuid4()),
+                group_id=self.consumer_name,
+                key_deserializer=lambda k: k.decode('utf-8')
+                if k is not None else k,
+                value_deserializer=lambda v: json.loads(v)
+                if v is not None else v,
+                auto_offset_reset=self.auto_offset_reset,
+                enable_auto_commit=settings.kafka_enable_auto_commit,
+                max_poll_records=settings.kafka_max_poll_records,
+                max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
+                consumer_timeout_ms=30000)
+            self.consumer.subscribe(
+                [settings.kafka_topic_castiron_etl_source_file])
+            self.logger.error(
+                f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...'
+            )
         except KafkaError as exc:
             self.logger.error(f"Exception {exc}")
 
@@ -128,9 +139,10 @@ class ConsumerWorker:
                 self.general_event_processor.checkForProcessingRecords.remote()
             except Exception as e:
                 self.logger.error(f"Error from file check: {e}")
-            
+
         while not self.stop_worker:
-            records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms, max_records=1)
+            records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms,
+                                              max_records=1)
 
             if records_dict is None or len(records_dict.items()) == 0:
                 time.sleep(5)
@@ -143,8 +155,9 @@ class ConsumerWorker:
                             # Needed to be a separate actor for shared memory access across nodes
                             self.toml_processor.process.remote(minio_record)
                         else:
-                            # Executed in the context of this thread/remote.  
-                            self.general_event_processor.process.remote(minio_record)
+                            # Executed in the context of this thread/remote.
+                            self.general_event_processor.process.remote(
+                                minio_record)
 
                 self.consumer.commit()
 
@@ -155,5 +168,3 @@ class ConsumerWorker:
             except BaseException as e:
                 self.logger.error('Error while running consumer worker!')
                 self.logger.error(e, exc_info=True)
-
-

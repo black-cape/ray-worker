@@ -50,4 +50,5 @@ class Settings(BaseSettings):
     LOCAL_MODE: str = 'Y'
     RAY_HEAD_ADDRESS: str = ''
 
+
 settings = Settings()

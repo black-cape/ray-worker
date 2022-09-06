@@ -21,7 +21,8 @@ def get_config():
 def test_get_inbox_path():
     toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
     cfg = get_config()
-    actual = path_helpers.get_inbox_path(toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
+    actual = path_helpers.get_inbox_path(toml_id, cfg,
+                                         ObjectId(NAMESPACE, 'dir/data.tsv'))
     assert '/tests/01_inbox/data.tsv' == actual.path
     assert NAMESPACE == actual.namespace
     actual = path_helpers.get_inbox_path(toml_id, cfg)
@@ -32,7 +33,8 @@ def test_get_inbox_path():
 def test_get_processing_path():
     toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
     cfg = get_config()
-    actual = path_helpers.get_processing_path(toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
+    actual = path_helpers.get_processing_path(
+        toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
     assert '/tests/02_processing/data.tsv' == actual.path
     assert NAMESPACE == actual.namespace
 
@@ -44,7 +46,8 @@ def test_get_processing_path():
 def test_get_archive_path():
     toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
     cfg = get_config()
-    actual = path_helpers.get_archive_path(toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
+    actual = path_helpers.get_archive_path(toml_id, cfg,
+                                           ObjectId(NAMESPACE, 'dir/data.tsv'))
     assert '/tests/03_archive/data.tsv' == actual.path
     assert NAMESPACE == actual.namespace
 
@@ -56,7 +59,8 @@ def test_get_archive_path():
 def test_get_error_path():
     toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
     cfg = get_config()
-    actual = path_helpers.get_error_path(toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
+    actual = path_helpers.get_error_path(toml_id, cfg,
+                                         ObjectId(NAMESPACE, 'dir/data.tsv'))
     assert '/tests/04_failed/data.tsv' == actual.path
     assert NAMESPACE == actual.namespace
 
@@ -83,16 +87,20 @@ def test_glob_matches():
     toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
     cfg = get_config()
 
-    assert path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_test.tsv'), toml_id, cfg)
-    assert path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_updated.csv'), toml_id,
-                                     cfg)
-    assert not path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_test.csv'), toml_id,
-                                         cfg)
-    assert path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_test.mp3'), toml_id,
-                                     cfg)
-    assert not path_helpers.glob_matches(ObjectId('bad_ns', '/tests/01_inbox/data_test.tsv'), toml_id, cfg)
-    assert not path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_test.bad'), toml_id, cfg)
-    assert not path_helpers.glob_matches(ObjectId(NAMESPACE, '/01_inbox/data_test.tsv'), toml_id, cfg)
+    assert path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_test.tsv'), toml_id, cfg)
+    assert path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_updated.csv'), toml_id, cfg)
+    assert not path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_test.csv'), toml_id, cfg)
+    assert path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_test.mp3'), toml_id, cfg)
+    assert not path_helpers.glob_matches(
+        ObjectId('bad_ns', '/tests/01_inbox/data_test.tsv'), toml_id, cfg)
+    assert not path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_test.bad'), toml_id, cfg)
+    assert not path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/01_inbox/data_test.tsv'), toml_id, cfg)
     cfg1 = SimpleNamespace()
     cfg1.enabled = True
     cfg1.handled_file_glob = "*_test.tsv"
@@ -100,8 +108,8 @@ def test_glob_matches():
     cfg1.processing_dir = "02_processing"
     cfg1.archive_dir = "03_archive"
     cfg1.error_dir = "04_failed"
-    assert not path_helpers.glob_matches(ObjectId(NAMESPACE, '/tests/01_inbox/data_test.tsv'), toml_id,
-                                         cfg1)
+    assert not path_helpers.glob_matches(
+        ObjectId(NAMESPACE, '/tests/01_inbox/data_test.tsv'), toml_id, cfg1)
 
 
 def test_filename():

@@ -2,6 +2,7 @@
 
 
 class DummyClass:
+
     def setup(self, **kwargs):
         pass
 

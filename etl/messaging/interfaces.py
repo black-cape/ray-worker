@@ -6,7 +6,8 @@ class MessageProducer(abc.ABC):
     """Interface for message producer backend"""
 
     @abc.abstractmethod
-    def job_created(self, job_id: str, filename: str, handler: str, uploader: str) -> None:
+    def job_created(self, job_id: str, filename: str, handler: str,
+                    uploader: str) -> None:
         """Send a message indicating a new job has been created
         :param job_id: Unique ID for new job
         :param filename: The data file that is being processed

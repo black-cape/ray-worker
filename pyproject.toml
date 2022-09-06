@@ -5,7 +5,7 @@ description = ""
 authors = ["Ken <ken@blackcape.io>"]
 
 [tool.poetry.dependencies]
-python = "3.8.13"
+python = "^3.8.11"
 ray = {extras = ["core"], version = "^1.12.0"}
 kafka-python = "<2.0.0"
 pydantic = "^1.9.0"
@@ -17,6 +17,8 @@ psutil = "^5.9.0"
 aioch = "^0.0.2"
 
 [tool.poetry.dev-dependencies]
+pylint = "^2.15.0"
+yapf = "^0.32.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

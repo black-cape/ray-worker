@@ -34,7 +34,8 @@ class ObjectStore(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def upload_object(self, dest: ObjectId, src_file: str, metadata: Optional[Dict]) -> None:
+    def upload_object(self, dest: ObjectId, src_file: str,
+                      metadata: Optional[Dict]) -> None:
         """Uploads a file to the object store
         :param dest: destination object
         :param src_file: local path to upload
@@ -57,7 +58,8 @@ class ObjectStore(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def move_object(self, src: ObjectId, dest: ObjectId, metadata: Optional[Dict]) -> None:
+    def move_object(self, src: ObjectId, dest: ObjectId,
+                    metadata: Optional[Dict]) -> None:
         """Moves an object to a new path or namespace
         :param src: source location
         :param dest: destination location
@@ -86,7 +88,10 @@ class ObjectStore(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def list_objects(self, namespace: str, path: Optional[str] = None, recursive=False) -> Iterable[ObjectId]:
+    def list_objects(self,
+                     namespace: str,
+                     path: Optional[str] = None,
+                     recursive=False) -> Iterable[ObjectId]:
         """Enumerates all objects under a directory, optionally recursively
         :param namespace: The namespace to search under
         :param path: An optional directory in the namespace to start with

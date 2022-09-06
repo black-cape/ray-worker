@@ -13,8 +13,11 @@ LOGGER = get_logger(__name__)
 
 
 class ClickHouseDatabase(DatabaseStore):
+
     def __init__(self):
-        self.client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+        self.client = Client(host=settings.clickhouse_host,
+                             port=settings.clickhouse_port,
+                             database='rubicon')
 
     async def insert_file(self, filedata: FileObject):
         """ Track a new file from Minio"""
@@ -23,7 +26,9 @@ class ClickHouseDatabase(DatabaseStore):
             await self.client.execute(sql, [filedata.dict()])
 
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured inserting a record in file tracking table {exc}')
+            LOGGER.error(
+                f'unexpected error occured inserting a record in file tracking table {exc}'
+            )
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
         """ Update the file status/state """
@@ -33,9 +38,12 @@ class ClickHouseDatabase(DatabaseStore):
                   f" updated_dt = {dt_seconds_since_epoch} WHERE file_name = '{filename}'  "
             await self.client.execute(sql)
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+            LOGGER.error(
+                f'unexpected error occured updating a record in file tracking table {exc}'
+            )
 
-    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
+    async def update_status_and_fileName(self, rowid: str, new_status: str,
+                                         new_filename: str):
         """ Update the file status/state and the file name """
         try:
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
@@ -43,7 +51,9 @@ class ClickHouseDatabase(DatabaseStore):
                   f" file_name='{new_filename}', updated_dt = {dt_seconds_since_epoch} WHERE id = '{rowid}'  "
             await self.client.execute(sql)
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+            LOGGER.error(
+                f'unexpected error occured updating a record in file tracking table {exc}'
+            )
 
     async def delete_file(self, rowid: str) -> None:
         try:
@@ -72,12 +82,14 @@ class ClickHouseDatabase(DatabaseStore):
 
             return file_objs
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured querying file tracking table {exc}')
+            LOGGER.error(
+                f'unexpected error occured querying file tracking table {exc}')
 
     def parse_notification(self, evt_data: Any) -> FileObject:
         """ Parse a Minio notification to create a DB row """
         bucket_name, file_name = evt_data['Key'].split('/', 1)
-        metadata = evt_data['Records'][0]['s3']['object'].get('userMetadata', {})
+        metadata = evt_data['Records'][0]['s3']['object'].get(
+            'userMetadata', {})
 
         classification_meta_obj_minio = json.loads(metadata['X-Amz-Meta-Classification']) \
             if metadata.get('X-Amz-Meta-Classification', None) else {}
@@ -86,11 +98,13 @@ class ClickHouseDatabase(DatabaseStore):
             id=metadata.get('X-Amz-Meta-Id', None),
             bucket_name=bucket_name,
             file_name=file_name,
-            status=STATUS_QUEUED, #everything starts out queued
-            original_filename=metadata.get('X-Amz-Meta-Originalfilename', None),
+            status=STATUS_QUEUED,  #everything starts out queued
+            original_filename=metadata.get('X-Amz-Meta-Originalfilename',
+                                           None),
             mission_id=metadata.get('X-Amz-Meta-Mission_id', None),
             event_name=evt_data['EventName'],
-            source_ip=evt_data['Records'][0]['requestParameters']['sourceIPAddress'],
+            source_ip=evt_data['Records'][0]['requestParameters']
+            ['sourceIPAddress'],
             size=evt_data['Records'][0]['s3']['object']['size'],
             etag=evt_data['Records'][0]['s3']['object']['eTag'],
             content_type=evt_data['Records'][0]['s3']['object']['contentType'],
@@ -98,16 +112,24 @@ class ClickHouseDatabase(DatabaseStore):
             updated_dt=datetime.now(),
             metadata=json.dumps(metadata),
             user_dn=metadata.get('X-Amz-Meta-Owner_dn', None),
-            classification=classification_meta_obj_minio.get('classification', settings.user_system_default_classification),
-            owner_producer=classification_meta_obj_minio.get('owner_producer', None),
+            classification=classification_meta_obj_minio.get(
+                'classification', settings.user_system_default_classification),
+            owner_producer=classification_meta_obj_minio.get(
+                'owner_producer', None),
             sci_controls=classification_meta_obj_minio.get('sci_controls', []),
-            sar_identifier=classification_meta_obj_minio.get('sar_identifier', []),
-            atomic_energy_control=classification_meta_obj_minio.get('atomic_energy_control', None),
-            dissemination_controls=classification_meta_obj_minio.get('dissemination_controls', []),
-            fgi_source_open=classification_meta_obj_minio.get('fgi_source_open', None),
-            fgi_source_protected=classification_meta_obj_minio.get('fgi_source_protected', None),
-            releasable_to=classification_meta_obj_minio.get('releasable_to', []),
-            non_ic_markings=classification_meta_obj_minio.get('non_ic_markings', [])
-        )
+            sar_identifier=classification_meta_obj_minio.get(
+                'sar_identifier', []),
+            atomic_energy_control=classification_meta_obj_minio.get(
+                'atomic_energy_control', None),
+            dissemination_controls=classification_meta_obj_minio.get(
+                'dissemination_controls', []),
+            fgi_source_open=classification_meta_obj_minio.get(
+                'fgi_source_open', None),
+            fgi_source_protected=classification_meta_obj_minio.get(
+                'fgi_source_protected', None),
+            releasable_to=classification_meta_obj_minio.get(
+                'releasable_to', []),
+            non_ic_markings=classification_meta_obj_minio.get(
+                'non_ic_markings', []))
 
         return ob_evt

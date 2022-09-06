@@ -6,6 +6,7 @@ from etl.file_processor_config import (PythonProcessorConfig,
 
 class TestLoadPythonprocessor(TestCase):
     """Test cases for the provider method."""
+
     def setUp(self) -> None:
         self.config = PythonProcessorConfig(worker_run_method='run')
 

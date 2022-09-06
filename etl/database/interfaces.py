@@ -10,6 +10,7 @@ STATUS_PROCESSING = 'Processing'
 STATUS_SUCCESS = 'Complete'
 STATUS_FAILED = 'Failed'
 
+
 class FileObject(BaseModel):
     # keep this in sync with Clickhouse schema used to track file status
     # since we use built in pydantic functions to build query
@@ -49,11 +50,13 @@ class DatabaseStore(abc.ABC):
         """
         raise NotImplementedError
 
-    async def update_status_by_fileName(self, filename: str, new_status: str) -> None:
+    async def update_status_by_fileName(self, filename: str,
+                                        new_status: str) -> None:
         # Update a file record status by filename
         raise NotImplementedError
 
-    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str) -> None:
+    async def update_status_and_fileName(self, rowid: str, new_status: str,
+                                         new_filename: str) -> None:
         # Update a file record status and file name
         raise NotImplementedError
 

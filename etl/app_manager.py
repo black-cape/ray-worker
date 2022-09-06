@@ -52,4 +52,3 @@ def generic_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"message": f"Manager error: {exc}"},
     )
-
