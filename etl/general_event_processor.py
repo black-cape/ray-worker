@@ -49,6 +49,7 @@ class TaskManager:
         if uuid in self.task_lookup:
             await ray.cancel(self.task_lookup[uuid])
             self.remove_task(uuid)
+            self.logger.info(f'Task canceled for UUID: {uuid}')
 
 
 @ray.remote
@@ -180,12 +181,12 @@ class GeneralEventProcessor:
             task_reference = process_file.remote(
                 object_id, job_id, config_object_id, processor, metadata, processing_file
             )
+            # Update our local task_reference->uuid lookup for tracking when it completes
+            self._pending_tasks[task_reference] = uuid
             # Keep track of the other params for a task for use in _file_put_followup
             self._task_params[uuid] = (object_id, uuid, job_id, config_object_id, processor)
             # Update the Ray shared memory TaskManager with this task's uuid and reference
-            self._task_manager[uuid] = task_reference
-            # Update our local task_reference->uuid lookup for tracking when it completes
-            self._pending_tasks[task_reference] = uuid
+            self._task_manager.add_task.remote(uuid, task_reference)
             return
 
     async def _file_put_followup(
@@ -258,6 +259,8 @@ class GeneralEventProcessor:
                     finally:
                         await self._file_put_followup(*task_params, status=status)
                         del self._pending_tasks[task_reference]
+                        del self._task_params[task_uuid]
+                        self._task_manager.remove_task.remote(task_uuid)
                 # Use latest task list as unfinished list, to ensure we get any newly added tasks
                 unfinished = self._pending_tasks.keys()
 

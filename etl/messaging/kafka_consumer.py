@@ -9,7 +9,7 @@ import ray
 from ray.actor import ActorHandle
 from etl.config import settings
 from etl.toml_processor import TOMLProcessor
-from etl.general_event_processor import GeneralEventProcessor
+from etl.general_event_processor import GeneralEventProcessor, TaskManager
 from etl.messaging.singleton import singleton
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
@@ -42,6 +42,7 @@ class ConsumerWorkerManager:
     def __init__(self):
         self.consumer_worker_container: List[ActorHandle] = []
         self.toml_processor = TOMLProcessor.remote()
+        self.task_manager = TaskManager.remote()
         processor_list = ray.get(self.toml_processor.get_processors.remote())
         LOGGER.info(f'Available processors length: {len(processor_list)}')
 
@@ -73,11 +74,16 @@ class ConsumerWorkerManager:
             raise Exception(f'All Consumers already running')
         LOGGER.info("All consumer workers started.")
 
+    async def cancel_processing_task(self, task_uuid: str) -> bool:
+        LOGGER.info(f'Canceling task for UUID: {task_uuid}')
+        await self.task_manager.cancel_task.remote(task_uuid)
+        return True
+
 
 @ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
 class ConsumerWorker:
 
-    def __init__(self, toml_processor: TOMLProcessor):
+    def __init__(self, toml_processor: TOMLProcessor, task_manager: TaskManager):
         self.consumer_name = settings.consumer_grp_etl_source_file
         self.stop_worker = False
         self.auto_offset_reset = 'earliest'
@@ -85,7 +91,9 @@ class ConsumerWorker:
         self.is_closed = False
         self.toml_processor = toml_processor
         # Configuration assumes 1 processor per Kafka consumer
-        self.general_event_processor = GeneralEventProcessor.remote(toml_processor=toml_processor)
+        self.general_event_processor = GeneralEventProcessor.remote(
+            toml_processor=toml_processor, task_manager=task_manager
+        )
 
         # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
         # let the workers log to default Ray log organization
