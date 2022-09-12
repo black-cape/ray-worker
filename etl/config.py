@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     tika_host: str = 'UNSET'
 
     # Ray configs
-    num_workers: int = 5
+    # [WS] Cast Iron will create (num_consumer_workers * 2) + 2 actors, plus schedule remote tasks up to the CPU limit
+    num_consumer_workers: int = 5
     max_restarts: int = 2
     max_retries: int = 2
 

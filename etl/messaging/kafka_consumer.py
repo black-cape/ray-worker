@@ -35,9 +35,9 @@ LOGGER.info(
 
 @singleton
 class ConsumerWorkerManager:
-    '''
+    """
     initialized via FAST API life cycle methods to spin up and down Ray workers, see etl/app_manager for more details
-    '''
+    """
 
     def __init__(self):
         self.consumer_worker_container: List[ActorHandle] = []
@@ -63,7 +63,7 @@ class ConsumerWorkerManager:
         LOGGER.info("Start all workers...")
         if len(self.consumer_worker_container) == 0:
             started_flag = True
-            for _ in itertools.repeat(None, settings.num_workers):
+            for _ in itertools.repeat(None, settings.num_consumer_workers):
                 worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor)
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
@@ -123,9 +123,9 @@ class ConsumerWorker:
         return self.is_closed
 
     async def run(self, initial_check_complete) -> None:
-        '''
+        """
         handles processing of either TOML config files or general data files
-        '''
+        """
         # Have the first worker check for stalled files
         if not initial_check_complete:
             self.logger.error("Checking for stalled files...")

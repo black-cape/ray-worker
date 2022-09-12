@@ -45,6 +45,11 @@ def stop_consumers():
     return "Successfully Stopped all workers!"
 
 
+@app.get('/manager/cancel-record')
+def cancel_record():
+    ...
+
+
 @app.exception_handler(Exception)
 def generic_exception_handler(request: Request, exc: Exception):
     LOGGER.error(exc)
