@@ -20,4 +20,4 @@ done
   
 >&2 echo "Minio is up"
 
-uvicorn --host 0.0.0.0 --port 8080 etl.app_manager:app
+uvicorn --host 0.0.0.0 --port 8002 etl.app_manager:app

@@ -1,6 +1,7 @@
 import ray
 
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from etl.messaging.kafka_consumer import ConsumerWorkerManager
@@ -8,7 +9,17 @@ from etl.util import get_logger
 
 LOGGER = get_logger(__name__)
 
-app = FastAPI(title='Cast Iron Worker Using Ray - Manager')
+app = FastAPI(title='Cast Iron Worker Using Ray - Manager', root_path='/castiron')
+
+# Setup CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
+
 cwm = ConsumerWorkerManager()
 
 
@@ -44,10 +55,10 @@ def stop_consumers():
     return 'Successfully Stopped all workers!'
 
 
-@app.get('/manager/cancel-record/{uuid}')
-async def cancel_record(uuid: str):
-    await cwm.cancel_processing_task(uuid)
-    return f'Successfully canceled task for UUID: {uuid}'
+@app.get('/manager/cancel-record/{filename}')
+async def cancel_record(filename: str):
+    await cwm.cancel_processing_task(filename)
+    return f'Successfully canceled task for filename: {filename}'
 
 
 @app.exception_handler(Exception)

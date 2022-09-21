@@ -65,7 +65,7 @@ class ConsumerWorkerManager:
         if len(self.consumer_worker_container) == 0:
             started_flag = True
             for _ in itertools.repeat(None, settings.num_consumer_workers):
-                worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor)
+                worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor, self.task_manager)
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
                 self.consumer_worker_container.append(worker_actor)

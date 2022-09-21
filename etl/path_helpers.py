@@ -78,6 +78,18 @@ def get_error_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_ob
     )
 
 
+def get_canceled_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None) -> ObjectId:
+    """Gets an ObjectId of the canceled directory for a given config or an object below it
+    :param config_object_id: The ObjectId of the processor config file
+    :param cfg: The deserialized processor config
+    :param file_object_id: An optional object to locate in the directory
+    """
+    return (
+        _compute_config_path(config_object_id, cfg.canceled_dir, filename(file_object_id))
+        if file_object_id is not None else _compute_config_path(config_object_id, cfg.canceled_dir)
+    )
+
+
 def rename(object_id: ObjectId, new_filename: str) -> ObjectId:
     """Compute a sibling ObjectId in the same namespace and directory
     :param object_id: The starting point object

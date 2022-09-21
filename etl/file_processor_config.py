@@ -77,6 +77,7 @@ class FileProcessorConfig(BaseModel):
     processing_dir: str
     archive_dir: Optional[str]
     error_dir: str
+    canceled_dir: str = '05_canceled'
     save_error_log: bool
     # One of the following must be set in order to process incoming files
     shell: Optional[str] = None

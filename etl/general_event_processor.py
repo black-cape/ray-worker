@@ -1,13 +1,15 @@
 import json
 import tempfile
+from asyncio import gather, run
 from pathlib import Path, PurePosixPath
 from typing import Dict, Optional
 from uuid import uuid4
+from threading import Thread
 from time import sleep
 from typing import List
 
 import ray
-from ray.exceptions import TaskCancelledError, WorkerCrashedError
+from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
 
 from etl.config import settings
 from etl.database.database import ClickHouseDatabase
@@ -20,7 +22,8 @@ from etl.object_store.interfaces import EventType
 from etl.object_store.minio import MinioObjectStore
 from etl.object_store.object_id import ObjectId
 from etl.path_helpers import (
-    filename, get_archive_path, get_error_path, get_inbox_path, get_processing_path, parent, processor_matches, rename
+    filename, get_archive_path, get_canceled_path, get_error_path, get_inbox_path, get_processing_path, parent,
+    processor_matches, rename
 )
 from etl.pizza_tracker import PizzaTracker
 from etl.toml_processor import TOMLProcessor
@@ -35,10 +38,12 @@ class TaskManager:
     """Class set up as a Ray actor to manage tasks by UUID in a way accessible to other actors"""
 
     def __init__(self):
-        self.task_lookup = {}
+        # [WS] IMPORTANT: Ray ObjectRefs must be passed within a list, or else their return values will be awaited
+        # (we don't want to await in this case since we want the ObjectRef handle in the event of canceling the task)
+        self.task_lookup: Dict[str, List[ray.ObjectRef]] = {}
         self.logger = get_logger(__name__)
 
-    def add_task(self, uuid: str, task_handle: str) -> None:
+    def add_task(self, uuid: str, task_handle: List[ray.ObjectRef]) -> None:
         self.task_lookup[uuid] = task_handle
 
     def remove_task(self, uuid: str) -> None:
@@ -46,8 +51,10 @@ class TaskManager:
             self.task_lookup.pop(uuid)
 
     async def cancel_task(self, uuid: str) -> None:
+        self.logger.debug(f'in function cancel_task() for uuid: {uuid}')
         if uuid in self.task_lookup:
-            await ray.cancel(self.task_lookup[uuid])
+            self.logger.debug(f'found uuid {uuid} in task_lookup, canceling')
+            ray.cancel(self.task_lookup[uuid][0])
             self.remove_task(uuid)
             self.logger.info(f'Task canceled for UUID: {uuid}')
 
@@ -71,13 +78,14 @@ class GeneralEventProcessor:
         self.logger = get_logger(__name__)
 
         # Start event loop for handling processing results
-        self._event_loop()
+        event_loop = Thread(target=run, args=(self._event_loop(),))
+        event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
         stuck_files: Optional[List[FileObject]] = await self._database.query(status=status)
 
         if stuck_files:
-            self.logger.error(f"Number of {status} files: {len(stuck_files)}")
+            self.logger.debug(f"Number of {status} files: {len(stuck_files)}")
 
             for stuck_file in stuck_files:
                 # New object. "Rename" object.
@@ -91,7 +99,7 @@ class GeneralEventProcessor:
                 metadata.pop('X-Amz-Meta-Originalfilename', None)
                 metadata.pop('X-Amz-Meta-Id', None)
 
-                self.logger.error(
+                self.logger.debug(
                     f"Moving file: {stuck_file.file_name} back to original filename: {new_path}"
                     f" to restart processing..."
                 )
@@ -179,19 +187,21 @@ class GeneralEventProcessor:
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
-                object_id, job_id, config_object_id, processor, metadata, processing_file
+                processing_file, job_id, config_object_id, processor, metadata, processing_file
             )
+            # Update the Ray shared memory TaskManager with this task's uuid and reference
+            await self._task_manager.add_task.remote(uuid, [task_reference])
+            self.logger.error('added task to task_manager')
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
+            self.logger.error('added task to local pending_tasks')
             # Keep track of the other params for a task for use in _file_put_followup
-            self._task_params[uuid] = (object_id, uuid, job_id, config_object_id, processor)
-            # Update the Ray shared memory TaskManager with this task's uuid and reference
-            self._task_manager.add_task.remote(uuid, task_reference)
+            self._task_params[uuid] = (processing_file, uuid, job_id, config_object_id, processor, metadata)
             return
 
     async def _file_put_followup(
         self, object_id: ObjectId, uuid: str, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig,
-        status: str
+        metadata: Dict, status: str, local_database: ClickHouseDatabase
     ):
         """
         Handle followup steps after processing completes for a file.
@@ -200,11 +210,9 @@ class GeneralEventProcessor:
         processing_file = get_processing_path(config_object_id, processor, object_id)
         archive_file: Optional[ObjectId] = get_archive_path(config_object_id, processor, object_id)
         error_file = get_error_path(config_object_id, processor, object_id)
+        canceled_file: ObjectId = get_canceled_path(config_object_id, processor, object_id)
         error_log_file_name = f'{filename(object_id).replace(".", "_")}{ERROR_LOG_SUFFIX}'
         error_log_file = get_error_path(config_object_id, processor, rename(object_id, error_log_file_name))
-
-        # mv to processing
-        metadata = self._object_store.retrieve_object_metadata(object_id)
 
         if status == STATUS_FAILED:
             with tempfile.TemporaryDirectory() as work_dir:
@@ -215,7 +223,7 @@ class GeneralEventProcessor:
                     self._object_store.move_object(processing_file, error_file, metadata)
 
                     self.logger.warning(f'file processing failed, moving to error location {error_file.path}')
-                    await self._database.update_status_and_fileName(uuid, STATUS_FAILED, error_file.path)
+                    await local_database.update_status_and_fileName(uuid, STATUS_FAILED, error_file.path)
                     self._message_producer.job_evt_status(job_id, 'failure')
 
                     # Optionally save error log to failed, use same metadata as original file
@@ -225,12 +233,13 @@ class GeneralEventProcessor:
                         )
         else:
             # Success, Canceled, or something unexpected. move to archive
-            if archive_file:
+            destination = canceled_file if status == STATUS_CANCELED else archive_file
+            if destination:
                 metadata['status'] = status
-                self._object_store.move_object(processing_file, archive_file, metadata)
+                self._object_store.move_object(processing_file, destination, metadata)
 
-                await self._database.update_status_and_fileName(uuid, status, archive_file.path)
-                self.logger.info(f'file processing {status}, moving to archive {archive_file.path}')
+                await local_database.update_status_and_fileName(uuid, status, destination.path)
+                self.logger.info(f'file processing {status}, moving to {destination.path}')
 
             kafka_status = 'success' if status == STATUS_SUCCESS else 'canceled' if status == STATUS_CANCELED \
                 else status
@@ -240,24 +249,29 @@ class GeneralEventProcessor:
         self.logger.info(f'finished processing {object_id}')
 
     async def _event_loop(self):
+        local_database = ClickHouseDatabase()
         while True:
-            unfinished = self._pending_tasks.keys()
+            unfinished = list(self._pending_tasks.keys())
             while unfinished:
+                self.logger.debug('Found unfinished tasks to wait for')
                 finished, unfinished = ray.wait(unfinished, num_returns=1)
                 for task_reference in finished:
                     task_uuid = self._pending_tasks[task_reference]
                     task_params = self._task_params[task_uuid]
                     status = STATUS_FAILED
                     try:
-                        success = ray.get(task_reference)
+                        results = await gather(task_reference)
+                        self.logger.debug(f'got results from awaited task reference: {results}')
+                        success = results[0]
                         status = STATUS_SUCCESS if success else status
-                    except TaskCancelledError or WorkerCrashedError as e:
+                    except (TaskCancelledError, WorkerCrashedError, RayTaskError) as e:
                         self.logger.warning(f'Task with UUID {task_uuid} was canceled or worker crashed: {e}')
                         status = STATUS_CANCELED
                     except Exception as e:
                         self.logger.error(f'Exception processing results for task with UUID {task_uuid}: {e}')
+                        self.logger.error(f'Exception was of type: {type(e).__name__}')
                     finally:
-                        await self._file_put_followup(*task_params, status=status)
+                        await self._file_put_followup(*task_params, status=status, local_database=local_database)
                         del self._pending_tasks[task_reference]
                         del self._task_params[task_uuid]
                         self._task_manager.remove_task.remote(task_uuid)
@@ -285,7 +299,6 @@ def process_file(
         object_store.download_object(processing_file, str(local_data_file))
 
         with PizzaTracker(message_producer, work_dir, job_id) as pizza_tracker:
-
             # pizza tracker has to be called in main thread as it needs things like Kafka connector
             run_method = load_python_processor(processor.python)
             method_kwargs = {}

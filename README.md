@@ -85,6 +85,7 @@ are created i
 * `processing_dir`
 * `archive_dir`
 * `error_dir`
+* `canceled_dir`
 
 ### Settings
 

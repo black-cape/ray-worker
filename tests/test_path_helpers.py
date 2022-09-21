@@ -15,6 +15,7 @@ def get_config():
     cfg.processing_dir = "02_processing"
     cfg.archive_dir = "03_archive"
     cfg.error_dir = "04_failed"
+    cfg.canceled_dir = "05_canceled"
     return cfg
 
 
@@ -62,6 +63,18 @@ def test_get_error_path():
 
     actual = path_helpers.get_error_path(toml_id, cfg)
     assert '/tests/04_failed' == actual.path
+    assert NAMESPACE == actual.namespace
+
+
+def test_get_canceled_path():
+    toml_id = ObjectId(NAMESPACE, '/tests/test_config.toml')
+    cfg = get_config()
+    actual = path_helpers.get_canceled_path(toml_id, cfg, ObjectId(NAMESPACE, 'dir/data.tsv'))
+    assert '/tests/05_canceled/data.tsv' == actual.path
+    assert NAMESPACE == actual.namespace
+
+    actual = path_helpers.get_canceled_path(toml_id, cfg)
+    assert '/tests/05_canceled' == actual.path
     assert NAMESPACE == actual.namespace
 
 
