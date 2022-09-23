@@ -22,5 +22,6 @@ RUN poetry install --no-root --no-dev
 
 # Copy the application
 COPY ./etl /app/etl
+COPY ./scripts /app/scripts
 
-CMD ["uvicorn", "--host", "0.0.0.0", "--port", "8002", "etl.app_manager:app"]
+CMD ["scripts/run_manager.sh"]

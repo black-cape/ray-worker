@@ -80,6 +80,11 @@ services:
       CONSUMER_GRP_ETL_CONFIG: etl_config_consumer_grp1
       MINIO_HOST: minio:9000
       KAFKA_BROKER: kafka:9092
+      RAY_REDIS_ADDRESS: 0.0.0.0:6379
+      RAY_NODE_MANAGER_PORT: 6380
+      RAY_OBJECT_MANAGER_PORT: 6381
+      RAY_MIN_WORKER_PORT: 10002
+      RAY_MAX_WORKER_PORT: 19999
     depends_on:
       kafka:
         condition: service_healthy

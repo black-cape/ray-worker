@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     max_retries: int = 2
 
     LOCAL_MODE: str = 'Y'
-    RAY_HEAD_ADDRESS: str = ''
+    RAY_REDIS_ADDRESS: str = 'UNSET'
 
 
 settings = Settings()

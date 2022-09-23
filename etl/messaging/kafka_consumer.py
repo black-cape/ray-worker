@@ -22,7 +22,7 @@ ray._private.utils.get_system_memory = lambda: psutil.virtual_memory().total
 if settings.LOCAL_MODE == 'Y':
     ray.init()
 else:
-    ray.init(address=settings.RAY_HEAD_ADDRESS)
+    ray.init(address=settings.RAY_REDIS_ADDRESS)
 
 LOGGER.info(
     '''This cluster consists of
