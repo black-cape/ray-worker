@@ -6,7 +6,7 @@ authors = ["Ken <ken@blackcape.io>"]
 
 [tool.poetry.dependencies]
 python = "^3.8.11"
-ray = {extras = ["core"], version = "^1.12.0"}
+ray = {extras = ["default"], version = "^2.0.0"}
 kafka-python = "<2.0.0"
 pydantic = "^1.9.0"
 fastapi = "^0.77.1"
