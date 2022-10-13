@@ -78,7 +78,9 @@ def get_error_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_ob
     )
 
 
-def get_canceled_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None) -> ObjectId:
+def get_canceled_path(
+    config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None
+) -> ObjectId:
     """Gets an ObjectId of the canceled directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
     :param cfg: The deserialized processor config

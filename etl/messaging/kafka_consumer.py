@@ -9,8 +9,9 @@ import ray
 from ray.actor import ActorHandle
 from etl.config import settings
 from etl.toml_processor import TOMLProcessor
-from etl.general_event_processor import GeneralEventProcessor, TaskManager
+from etl.general_event_processor import GeneralEventProcessor
 from etl.messaging.singleton import singleton
+from etl.task_manager import TaskManager
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 from etl.util import get_logger

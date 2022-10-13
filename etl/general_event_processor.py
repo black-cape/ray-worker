@@ -2,11 +2,10 @@ import json
 import tempfile
 from asyncio import gather, run
 from pathlib import Path, PurePosixPath
-from typing import Dict, Optional
-from uuid import uuid4
 from threading import Thread
 from time import sleep
-from typing import List
+from typing import Dict, List, Optional
+from uuid import uuid4
 
 import ray
 from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
@@ -26,37 +25,12 @@ from etl.path_helpers import (
     processor_matches, rename
 )
 from etl.pizza_tracker import PizzaTracker
+from etl.task_manager import TaskManager
 from etl.toml_processor import TOMLProcessor
 from etl.util import create_rest_client, short_uuid, get_logger
 
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
-
-
-@ray.remote
-class TaskManager:
-    """Class set up as a Ray actor to manage tasks by UUID in a way accessible to other actors"""
-
-    def __init__(self):
-        # [WS] IMPORTANT: Ray ObjectRefs must be passed within a list, or else their return values will be awaited
-        # (we don't want to await in this case since we want the ObjectRef handle in the event of canceling the task)
-        self.task_lookup: Dict[str, List[ray.ObjectRef]] = {}
-        self.logger = get_logger(__name__)
-
-    def add_task(self, uuid: str, task_handle: List[ray.ObjectRef]) -> None:
-        self.task_lookup[uuid] = task_handle
-
-    def remove_task(self, uuid: str) -> None:
-        if uuid in self.task_lookup:
-            self.task_lookup.pop(uuid)
-
-    async def cancel_task(self, uuid: str) -> None:
-        self.logger.debug(f'in function cancel_task() for uuid: {uuid}')
-        if uuid in self.task_lookup:
-            self.logger.debug(f'found uuid {uuid} in task_lookup, canceling')
-            ray.cancel(self.task_lookup[uuid][0])
-            self.remove_task(uuid)
-            self.logger.info(f'Task canceled for UUID: {uuid}')
 
 
 @ray.remote
@@ -78,7 +52,7 @@ class GeneralEventProcessor:
         self.logger = get_logger(__name__)
 
         # Start event loop for handling processing results
-        event_loop = Thread(target=run, args=(self._event_loop(),))
+        event_loop = Thread(target=run, args=(self._event_loop(), ))
         event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
