@@ -16,6 +16,7 @@ from etl.util import get_logger
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
 
+
 @ray.remote
 class TOMLProcessor:
     """A service that processes individual object events"""
@@ -89,4 +90,3 @@ class TOMLProcessor:
         :return: True if the object was deleted
         """
         return bool(self.processors.pop(toml_object_id, None))
-

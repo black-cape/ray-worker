@@ -14,6 +14,7 @@ from etl.config import settings
 configured_logging_level = getattr(logging, settings.log_level.upper(), None)
 logging.basicConfig(level=configured_logging_level)
 
+
 def short_uuid() -> str:
     """Creates a short unique ID string"""
     return base64.b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')

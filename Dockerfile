@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | POETRY_HOME=/opt/poetry python && \
+RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python && \
     cd /usr/local/bin && \
     ln -s /opt/poetry/bin/poetry && \
     poetry config virtualenvs.create false
@@ -22,5 +22,6 @@ RUN poetry install --no-root --no-dev
 
 # Copy the application
 COPY ./etl /app/etl
+COPY ./scripts /app/scripts
 
-CMD ["uvicorn", "--host", "0.0.0.0", "--port", "8002", "etl.app_manager:app"]
+CMD ["scripts/run_manager.sh"]

@@ -13,6 +13,7 @@ LOGGER = get_logger(__name__)
 
 
 class ClickHouseDatabase(DatabaseStore):
+
     def __init__(self):
         self.client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
 
@@ -86,7 +87,7 @@ class ClickHouseDatabase(DatabaseStore):
             id=metadata.get('X-Amz-Meta-Id', None),
             bucket_name=bucket_name,
             file_name=file_name,
-            status=STATUS_QUEUED, #everything starts out queued
+            status=STATUS_QUEUED,  #everything starts out queued
             original_filename=metadata.get('X-Amz-Meta-Originalfilename', None),
             mission_id=metadata.get('X-Amz-Meta-Mission_id', None),
             event_name=evt_data['EventName'],
@@ -98,7 +99,9 @@ class ClickHouseDatabase(DatabaseStore):
             updated_dt=datetime.now(),
             metadata=json.dumps(metadata),
             user_dn=metadata.get('X-Amz-Meta-Owner_dn', None),
-            classification=classification_meta_obj_minio.get('classification', settings.user_system_default_classification),
+            classification=classification_meta_obj_minio.get(
+                'classification', settings.user_system_default_classification
+            ),
             owner_producer=classification_meta_obj_minio.get('owner_producer', None),
             sci_controls=classification_meta_obj_minio.get('sci_controls', []),
             sar_identifier=classification_meta_obj_minio.get('sar_identifier', []),

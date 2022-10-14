@@ -21,10 +21,13 @@ build: ## build the docker image
 nag: sort lint type test ## Run all checks
 
 lint: ## Run pylint over the main project files
-	poetry run pylint etl
+	poetry run pylint etl --rcfile .pylintrc
 
 sort: ## Sort files
 	poetry run isort -rc etl tests
+
+yapf: ## Format files
+	poetry run yapf -ir etl tests
 
 test: ## Run integration tests
 	poetry run coverage run --source etl -m pytest

@@ -15,6 +15,7 @@ def test_try_loads():
     assert "02_processing" == actual.processing_dir
     assert "03_archive" == actual.archive_dir
     assert "04_failed" == actual.error_dir
+    assert "05_canceled" == actual.canceled_dir
     assert False == actual.save_error_log
     assert "shell" == actual.shell.strip()
 
@@ -38,6 +39,7 @@ def test_python_try_loads():
     assert "02_processing" == actual.processing_dir
     assert "03_archive" == actual.archive_dir
     assert "04_failed" == actual.error_dir
+    assert "05_canceled" == actual.canceled_dir
     assert actual.shell is None
     assert actual.python is not None and isinstance(actual.python, PythonProcessorConfig)
 

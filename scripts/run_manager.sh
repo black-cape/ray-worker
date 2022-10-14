@@ -20,4 +20,8 @@ done
   
 >&2 echo "Minio is up"
 
-uvicorn --host 0.0.0.0 --port 8080 etl.app_manager:app
+ray start --head --port $RAY_HEAD_PORT \
+    --node-manager-port $RAY_NODE_MANAGER_PORT --object-manager-port $RAY_OBJECT_MANAGER_PORT \
+    --min-worker-port $RAY_MIN_WORKER_PORT --max-worker-port $RAY_MAX_WORKER_PORT
+
+uvicorn --host 0.0.0.0 --port 8002 etl.app_manager:app

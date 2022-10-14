@@ -15,11 +15,14 @@ from etl.util import get_logger
 KEEP_FILENAME = '.keep'
 LOGGER = get_logger(__name__)
 
+
 class MinioObjectResponse(Protocol):
     """A duck type interface describing the minio object response"""
     data: bytes
+
     def close(self):
         """Closes this response object"""
+
 
 #notification only for ETL TOML config file, as well as for everything
 #Note ideally we would have liked to be able to filter non TOML config file via a syntax such as
@@ -37,9 +40,9 @@ notification_configs = NotificationConfig(
 )
 
 
-
 class MinioObjectStore(ObjectStore):
     """Implements the ObjectStore interface using Minio as the backend service"""
+
     def __init__(self):
         self._minio_client = Minio(
             f'{settings.minio_host}:{settings.minio_port}',
@@ -58,10 +61,9 @@ class MinioObjectStore(ObjectStore):
         self._minio_client.fget_object(src.namespace, src.path, dest_file)
 
     def upload_object(self, dest: ObjectId, src_file: str, metadata: Optional[Dict]) -> None:
-        self._minio_client.fput_object(bucket_name=dest.namespace,
-                                       object_name=dest.path,
-                                       file_path=src_file,
-                                       metadata=metadata)
+        self._minio_client.fput_object(
+            bucket_name=dest.namespace, object_name=dest.path, file_path=src_file, metadata=metadata
+        )
 
     def read_object(self, obj: ObjectId) -> bytes:
         response: Optional[MinioObjectResponse] = None
@@ -80,11 +82,11 @@ class MinioObjectStore(ObjectStore):
     def move_object(self, src: ObjectId, dest: ObjectId, metadata: Optional[Dict] = None) -> None:
         if metadata:
             self._minio_client.copy_object(
-                                dest.namespace,
-                                dest.path, 
-                                CopySource(src.namespace, src.path),
-                                metadata=metadata,
-                                metadata_directive=REPLACE,
+                dest.namespace,
+                dest.path,
+                CopySource(src.namespace, src.path),
+                metadata=metadata,
+                metadata_directive=REPLACE,
             )
         else:
             self._minio_client.copy_object(dest.namespace, dest.path, CopySource(src.namespace, src.path))

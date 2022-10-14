@@ -20,14 +20,14 @@ class PythonProcessorConfig(BaseModel):
         default=None,
         title='Setup Method',
         description='The member method of the worker class to perform a pre-requisites for executing the run method. '
-                    'This config is only used if the worker class is defined and the method will be invoked with the '
-                    'named arguments.'
+        'This config is only used if the worker class is defined and the method will be invoked with the '
+        'named arguments.'
     )
     worker_run_method: str = Field(
         title='Run Method',
         description='The method that will be invoked to process incoming data. This method should expect a path to the '
-                    'data file as the first argument. If the worker class is defined then this method should be a '
-                    'member of the class, otherwise this should be the absolute import path.'
+        'data file as the first argument. If the worker class is defined then this method should be a '
+        'member of the class, otherwise this should be the absolute import path.'
     )
     supports_pizza_tracker: Optional[bool] = Field(
         default=False,
@@ -54,8 +54,8 @@ class PythonProcessorConfig(BaseModel):
         default=None,
         title='Environment Named Arguments',
         description='A map of named arguments to the environment variables that hold their values. '
-                    'This map will be used to generate additional named arguments to pass into the '
-                    'setup method or run method'
+        'This map will be used to generate additional named arguments to pass into the '
+        'setup method or run method'
     )
 
     @validator('worker_run_method')
@@ -77,6 +77,7 @@ class FileProcessorConfig(BaseModel):
     processing_dir: str
     archive_dir: Optional[str]
     error_dir: str
+    canceled_dir: str = '05_canceled'
     save_error_log: bool
     # One of the following must be set in order to process incoming files
     shell: Optional[str] = None
@@ -140,8 +141,7 @@ def load_python_processor(config: PythonProcessorConfig) -> Callable:
         kwargs.update(
             {
                 argument: os.environ.get(env_var)
-                for argument, env_var in config.environment_kwargs.items()
-                if os.environ.get(env_var) is not None
+                for argument, env_var in config.environment_kwargs.items() if os.environ.get(env_var) is not None
             }
         )
 
