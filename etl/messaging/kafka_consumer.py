@@ -67,6 +67,8 @@ class ConsumerWorkerManager:
             started_flag = True
             for _ in itertools.repeat(None, settings.num_consumer_workers):
                 worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor, self.task_manager)
+                # [WS] NOTE: the initial check should be only run by one single ConsumerWorker, so we pass this boolean
+                # value through here as False once (prompting a check) and then True for the rest (no check).
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
                 self.consumer_worker_container.append(worker_actor)
@@ -131,7 +133,7 @@ class ConsumerWorker:
     def closed(self):
         return self.is_closed
 
-    async def run(self, initial_check_complete) -> None:
+    async def run(self, initial_check_complete: bool) -> None:
         """
         handles processing of either TOML config files or general data files
         """
@@ -142,6 +144,8 @@ class ConsumerWorker:
                 self.general_event_processor.restart_processing_records.remote()
             except Exception as e:
                 self.logger.error(f"Error from file check: {e}")
+        else:
+            self.logger.debug('Another ConsumerWorker is performing the initial check, skipping...')
 
         while not self.stop_worker:
             records_dict = self.consumer.poll(timeout_ms=self.poll_timeout_ms, max_records=1)
