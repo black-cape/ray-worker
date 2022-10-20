@@ -105,6 +105,10 @@ class GeneralEventProcessor:
                 # status and we can end up with status "Deleted" even if it really should be processed
                 pass
             elif evt.event_type == EventType.Put:
+
+                print('in put ')
+                print(evt)
+
                 if evt.original_filename:
                     if not evt.event_status:
                         self.logger.info(
