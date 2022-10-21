@@ -251,7 +251,7 @@ class GeneralEventProcessor:
                         del self._task_params[task_uuid]
                         self._task_manager.remove_task.remote(task_uuid)
                 # Use latest task list as unfinished list, to ensure we get any newly added tasks
-                unfinished = self._pending_tasks.keys()
+                unfinished = [object_ref for object_ref in self._pending_tasks.keys()]
 
             # Once we've run out of unfinished tasks, sleep and check again
             sleep(1.0)
