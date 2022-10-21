@@ -225,7 +225,8 @@ class GeneralEventProcessor:
     async def _event_loop(self):
         local_database = ClickHouseDatabase()
         while True:
-            unfinished = list(self._pending_tasks.keys())
+            # make sure ray.wait gets ObjectRefs, not DictKeys
+            unfinished = [object_ref for object_ref in self._pending_tasks.keys()]
             while unfinished:
                 self.logger.debug('Found unfinished tasks to wait for')
                 finished, unfinished = ray.wait(unfinished, num_returns=1)
