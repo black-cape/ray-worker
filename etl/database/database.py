@@ -15,51 +15,56 @@ LOGGER = get_logger(__name__)
 class ClickHouseDatabase(DatabaseStore):
 
     def __init__(self):
-        self.client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+        pass
 
     async def insert_file(self, filedata: FileObject):
         """ Track a new file from Minio"""
         try:
+            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             sql = f'INSERT INTO cast_iron_file_status ({",".join(FileObject.__fields__.keys())}) VALUES'
-            await self.client.execute(sql, [filedata.dict()])
-
+            await client.execute(sql, [filedata.dict()])
         except Exception as exc:
             LOGGER.error(f'unexpected error occured inserting a record in file tracking table {exc}')
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
         """ Update the file status/state """
         try:
+            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
             sql = f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', " \
                   f" updated_dt = {dt_seconds_since_epoch} WHERE file_name = '{filename}'  "
-            await self.client.execute(sql)
+            await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
 
     async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
         """ Update the file status/state and the file name """
         try:
+            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
             sql = f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', " \
                   f" file_name='{new_filename}', updated_dt = {dt_seconds_since_epoch} WHERE id = '{rowid}'  "
-            await self.client.execute(sql)
+            await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
 
     async def delete_file(self, rowid: str) -> None:
         try:
+            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             sql = f"ALTER TABLE cast_iron_file_status DELETE WHERE id = '{rowid}' "
-            await self.client.execute(sql)
+            await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured deleting a record {exc}')
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
         sql = f"SELECT * FROM cast_iron_file_status WHERE 1 = 1 "
+        client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+
         if status:
             sql = f"{sql} AND status = '{status}' "
 
         try:
-            rep = await self.client.execute(sql, with_column_types=True)
+            rep = await client.execute(sql, with_column_types=True)
 
             col_names = [t[0] for t in rep[1]]
             file_objs: List[FileObject] = []
