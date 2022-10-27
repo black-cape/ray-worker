@@ -118,7 +118,7 @@ class ConsumerWorker:
                 consumer_timeout_ms=30000
             )
             self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            self.logger.error(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
+            self.logger.info(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
         except KafkaError as exc:
             self.logger.error(f"Exception {exc}")
 
@@ -139,7 +139,7 @@ class ConsumerWorker:
         """
         # Have the first worker check for stalled files
         if not initial_check_complete:
-            self.logger.error("Checking for stalled files...")
+            self.logger.info("Checking for stalled files...")
             try:
                 self.general_event_processor.restart_processing_records.remote()
             except Exception as e:

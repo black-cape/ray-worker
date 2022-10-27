@@ -165,10 +165,8 @@ class GeneralEventProcessor:
             )
             # Update the Ray shared memory TaskManager with this task's uuid and reference
             await self._task_manager.add_task.remote(uuid, [task_reference])
-            self.logger.error('added task to task_manager')
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
-            self.logger.error('added task to local pending_tasks')
             # Keep track of the other params for a task for use in _file_put_followup
             self._task_params[uuid] = (processing_file, uuid, job_id, config_object_id, processor, metadata)
             return
