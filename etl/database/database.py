@@ -19,15 +19,20 @@ class ClickHouseDatabase(DatabaseStore):
 
     async def insert_file(self, filedata: FileObject):
         """ Track a new file from Minio"""
+        client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             sql = f'INSERT INTO cast_iron_file_status ({",".join(FileObject.__fields__.keys())}) VALUES'
             await client.execute(sql, [filedata.dict()])
         except Exception as exc:
             LOGGER.error(f'unexpected error occured inserting a record in file tracking table {exc}')
+        finally:
+            if client:
+                client.disconnect()
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
         """ Update the file status/state """
+        client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
@@ -36,9 +41,13 @@ class ClickHouseDatabase(DatabaseStore):
             await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+        finally:
+            if client:
+                client.disconnect()
 
     async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
         """ Update the file status/state and the file name """
+        client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
@@ -47,23 +56,33 @@ class ClickHouseDatabase(DatabaseStore):
             await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+        finally:
+            if client:
+                client.disconnect()
 
     async def delete_file(self, rowid: str) -> None:
+        client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             sql = f"ALTER TABLE cast_iron_file_status DELETE WHERE id = '{rowid}' "
             await client.execute(sql)
         except Exception as exc:
             LOGGER.error(f'unexpected error occured deleting a record {exc}')
+        finally:
+            if client:
+                client.disconnect()
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
         sql = f"SELECT * FROM cast_iron_file_status WHERE 1 = 1 "
-        client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+
+        client: Client = None
 
         if status:
             sql = f"{sql} AND status = '{status}' "
 
         try:
+            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+
             rep = await client.execute(sql, with_column_types=True)
 
             col_names = [t[0] for t in rep[1]]
@@ -79,6 +98,9 @@ class ClickHouseDatabase(DatabaseStore):
             return file_objs
         except Exception as exc:
             LOGGER.error(f'unexpected error occured querying file tracking table {exc}')
+        finally:
+            if client:
+                client.disconnect()
 
     def parse_notification(self, evt_data: Any) -> FileObject:
         """ Parse a Minio notification to create a DB row """
