@@ -183,9 +183,6 @@ class GeneralEventProcessor:
                                                handler=handler,
                                                uploader='castiron')
 
-            # mv to processing
-            await self.move_to_processing(job_id=job_id, object_id=object_id,
-                                          processing_path_object_id=processing_path_object_id)
 
             self._message_producer.job_created(job_id=job_id,
                                                filename=filename(object_id),
