@@ -146,10 +146,10 @@ class GeneralEventProcessor:
 
         metadata = self._object_store.retrieve_object_metadata(object_id)
         worker_run_method: Optional[str] = metadata.get('X-Amz-Meta-worker_run_method', None)
-
         job_id: Optional[str] = None
         handler: Optional[str] = None
         processing_path_object_id: Optional[ObjectId] = None
+        processor_matched: Optional[FileProcessorConfig] = None
 
         if worker_run_method:
             self.logger.info(f'file come with worker_run_method metadata, skipping ETL processing config matching and'
@@ -174,8 +174,10 @@ class GeneralEventProcessor:
 
                 job_id = short_uuid()
 
+                processor_matched = processor
+
                 # Hypothetical file paths for each directory
-                processing_path_object_id: ObjectId = get_processing_path(config_object_id, processor, object_id)
+                processing_path_object_id: ObjectId = get_processing_path(config_object_id, processor_matched, object_id)
 
         if job_id:
             self._message_producer.job_created(job_id=job_id,
@@ -195,7 +197,7 @@ class GeneralEventProcessor:
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
-                processing_path_object_id, job_id, None, worker_run_method, metadata, processing_path_object_id
+                processing_path_object_id, job_id, processor_matched, worker_run_method, metadata, processing_path_object_id
             )
 
             # Update the Ray shared memory TaskManager with this task's uuid and reference
