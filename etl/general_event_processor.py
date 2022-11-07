@@ -140,8 +140,9 @@ class GeneralEventProcessor:
         metadata = self._object_store.retrieve_object_metadata(object_id)
         print('YOYO lala')
         print(metadata)
-
-
+        print(metadata.get('x-amz-meta-worker_run_method', 'None1'))
+        print(metadata.get('x-amz-meta-originalfilename', 'None2'))
+        print(metadata.get('X-Amz-Meta-Originalfilename', 'None3'))
 
         # loop thru any existing processor and determine which one to use
         for config_object_id, processor in processor_dict.items():
@@ -169,7 +170,7 @@ class GeneralEventProcessor:
             await self._database.update_status_and_fileName(uuid, STATUS_PROCESSING, processing_file.path)
 
             # kick off processing and then return after first match
-            task_reference = process_file.remote(
+            task_reference = process_file_as_per_config.remote(
                 processing_file, job_id, config_object_id, processor, metadata, processing_file
             )
             # Update the Ray shared memory TaskManager with this task's uuid and reference
@@ -265,7 +266,7 @@ class GeneralEventProcessor:
 
 
 @ray.remote
-def process_file(
+def process_file_as_per_config(
     object_id: ObjectId, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig, metadata: dict,
     processing_file: ObjectId
 ) -> bool:
