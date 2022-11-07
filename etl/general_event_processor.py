@@ -135,6 +135,15 @@ class GeneralEventProcessor:
         self.logger.info(f'received file put event for path {object_id}')
 
         processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
+
+        # TODO debug
+        metadata = self._object_store.retrieve_object_metadata(object_id)
+        print('YOYO lala')
+        print(metadata)
+
+
+
+        # loop thru any existing processor and determine which one to use
         for config_object_id, processor in processor_dict.items():
             if (
                 parent(object_id) != get_inbox_path(config_object_id, processor) or not processor_matches(
@@ -272,6 +281,7 @@ def process_file(
         object_store.download_object(processing_file, str(local_data_file))
 
         with PizzaTracker(message_producer, work_dir, job_id) as pizza_tracker:
+            # TODO branch off here, if in metadata, go ahead and call it
             # pizza tracker has to be called in main thread as it needs things like Kafka connector
             run_method = load_python_processor(processor.python)
             method_kwargs = {}
