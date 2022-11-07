@@ -1,0 +1,4 @@
+DEFAULT_INBOX_DIR = '01_inbox'
+DEFAULT_PROCESSING_DIR = '02_processing'
+DEFAULT_ARCHIVE_DIR = '03_archive'
+DEFAULT_ERROR_DIR = '04_failed'

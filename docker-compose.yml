@@ -49,6 +49,7 @@ services:
     entrypoint: /usr/bin/docker-entrypoint.sh server /data --console-address :9001
     ports:
       - "9001:9001"
+      - "9000:9000"
     depends_on:
       kafka:
         condition: service_healthy
@@ -60,25 +61,16 @@ services:
       retries: 3
     restart: on-failure
 
-  # Workflow Tracking
-  postgres:
-    image: postgres:latest
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_PASSWORD: 12345678
-      POSTGRES_DB: castiron
-      POSTGRES_USER: castiron
-      PGDATA: /data
-
   ray_cast_iron_worker:
     build:
       context: .
     container_name: ray-cast-iron-worker
     environment:
       CONSUMER_GRP_ETL_CONFIG: etl_config_consumer_grp1
-      MINIO_HOST: minio:9000
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: castiron
+      MINIO_ROOT_PASSWORD: castiron
       KAFKA_BROKER: kafka:9092
       RAY_HEAD_PORT: 6379
       RAY_HEAD_ADDRESS: 0.0.0.0:${RAY_HEAD_PORT}

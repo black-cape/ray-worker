@@ -10,6 +10,7 @@ from uuid import uuid4
 import ray
 from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
 
+from etl import DEFAULT_PROCESSING_DIR
 from etl.config import settings
 from etl.database.database import ClickHouseDatabase
 from etl.database.interfaces import (
@@ -52,7 +53,7 @@ class GeneralEventProcessor:
         self.logger = get_logger(__name__)
 
         # Start event loop for handling processing results
-        event_loop = Thread(target=run, args=(self._event_loop(), ))
+        event_loop = Thread(target=run, args=(self._event_loop(),))
         event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
@@ -127,6 +128,13 @@ class GeneralEventProcessor:
 
                     self._object_store.move_object(evt.object_id, dest_object_id, metadata)
 
+    async def move_to_processing(self, job_id: str, object_id: ObjectId, processing_path_object_id: ObjectId):
+        # mv to processing
+        metadata = self._object_store.retrieve_object_metadata(object_id)
+        metadata['status'] = STATUS_PROCESSING
+        self._object_store.move_object(object_id, processing_path_object_id, metadata)
+        await self._database.update_status_and_fileName(job_id, STATUS_PROCESSING, processing_path_object_id.path)
+
     async def _file_put(self, object_id: ObjectId, uuid: str):
         """
         Handle possible data file puts, look for matching toml processor to process it.
@@ -136,54 +144,76 @@ class GeneralEventProcessor:
 
         processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
 
-        # TODO debug
         metadata = self._object_store.retrieve_object_metadata(object_id)
-        print('YOYO lala')
-        print(metadata)
-        print(metadata.get('x-amz-meta-worker_run_method', 'None1'))
-        print(metadata.get('x-amz-meta-originalfilename', 'None2'))
-        print(metadata.get('X-Amz-Meta-Originalfilename', 'None3'))
+        worker_run_method: Optional[str] = metadata.get('X-Amz-Meta-worker_run_method', None)
 
-        # loop thru any existing processor and determine which one to use
-        for config_object_id, processor in processor_dict.items():
-            if (
-                parent(object_id) != get_inbox_path(config_object_id, processor) or not processor_matches(
-                    object_id, config_object_id, processor, self._object_store, self._rest_client, settings.tika_host,
-                    settings.enable_tika
-                )
-            ):
-                # File isn't in our inbox directory or filename doesn't match our glob pattern
-                continue
+        job_id: Optional[str] = None
+        handler: Optional[str] = None
+        processing_path_object_id: Optional[ObjectId] = None
 
-            self.logger.info(f'matching ETL processing config found, processing {config_object_id}')
-
-            # Hypothetical file paths for each directory
-            processing_file = get_processing_path(config_object_id, processor, object_id)
+        if worker_run_method:
+            self.logger.info(f'file come with worker_run_method metadata, skipping ETL processing config matching and'
+                             f'invoking {worker_run_method} directly ')
 
             job_id = short_uuid()
-            self._message_producer.job_created(job_id, filename(object_id), filename(config_object_id), 'castiron')
+            handler = worker_run_method
+
+            processing_path_object_id: ObjectId = ObjectId(settings.minio_etl_bucket, DEFAULT_PROCESSING_DIR)
+
+        else:
+            # loop thru any existing processor and determine which one to use
+            for config_object_id, processor in processor_dict.items():
+                if (parent(object_id) != get_inbox_path(config_object_id, processor) or not processor_matches(
+                        object_id, config_object_id, processor, self._object_store, self._rest_client,
+                        settings.tika_host,
+                        settings.enable_tika)):
+                    # File isn't in our inbox directory or filename doesn't match our glob pattern
+                    continue
+
+                self.logger.info(f'matching ETL processing config found, processing {config_object_id}')
+
+                job_id = short_uuid()
+
+                # Hypothetical file paths for each directory
+                processing_path_object_id: ObjectId = get_processing_path(config_object_id, processor, object_id)
+
+        if job_id:
+            self._message_producer.job_created(job_id=job_id,
+                                               filename=filename(object_id),
+                                               handler=handler,
+                                               uploader='castiron')
 
             # mv to processing
-            metadata = self._object_store.retrieve_object_metadata(object_id)
-            metadata['status'] = STATUS_PROCESSING
-            self._object_store.move_object(object_id, processing_file, metadata)
-            await self._database.update_status_and_fileName(uuid, STATUS_PROCESSING, processing_file.path)
+            await self.move_to_processing(job_id=job_id, object_id=object_id,
+                                          processing_path_object_id=processing_path_object_id)
+
+            self._message_producer.job_created(job_id=job_id,
+                                               filename=filename(object_id),
+                                               handler=filename(config_object_id),
+                                               uploader='castiron')
+
+            # mv to processing
+            await self.move_to_processing(job_id=job_id, object_id=object_id,
+                                          processing_path_object_id=processing_path_object_id)
 
             # kick off processing and then return after first match
-            task_reference = process_file_as_per_config.remote(
-                processing_file, job_id, config_object_id, processor, metadata, processing_file
+            task_reference = process_file.remote(
+                processing_path_object_id, job_id, None, worker_run_method, metadata, processing_path_object_id
             )
+
             # Update the Ray shared memory TaskManager with this task's uuid and reference
             await self._task_manager.add_task.remote(uuid, [task_reference])
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
-            # Keep track of the other params for a task for use in _file_put_followup
-            self._task_params[uuid] = (processing_file, uuid, job_id, config_object_id, processor, metadata)
+            # Keep track of the other params for a task for use in _event_loop
+            self._task_params[uuid] = (
+                processing_path_object_id, uuid, job_id, config_object_id, processor, metadata)
             return
 
     async def _file_put_followup(
-        self, object_id: ObjectId, uuid: str, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig,
-        metadata: Dict, status: str, local_database: ClickHouseDatabase
+            self, object_id: ObjectId, uuid: str, job_id: str, config_object_id: ObjectId,
+            processor: FileProcessorConfig,
+            metadata: Dict, status: str, local_database: ClickHouseDatabase
     ):
         """
         Handle followup steps after processing completes for a file.
@@ -266,9 +296,13 @@ class GeneralEventProcessor:
 
 
 @ray.remote
-def process_file_as_per_config(
-    object_id: ObjectId, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig, metadata: dict,
-    processing_file: ObjectId
+def process_file(
+        object_id: ObjectId,
+        job_id: str,
+        processor: Optional[FileProcessorConfig],
+        work_run_method: Optional[str],
+        metadata: dict,
+        processing_file_object_id: ObjectId
 ) -> bool:
     """ Remote (non-actor) task for running the configured processing method for a file """
     message_producer = KafkaMessageProducer()
@@ -279,7 +313,7 @@ def process_file_as_per_config(
         # Download to local temp working directory
         base_path = PurePosixPath(work_dir)
         local_data_file = base_path / filename(object_id)
-        object_store.download_object(processing_file, str(local_data_file))
+        object_store.download_object(processing_file_object_id, str(local_data_file))
 
         with PizzaTracker(message_producer, work_dir, job_id) as pizza_tracker:
             # TODO branch off here, if in metadata, go ahead and call it
@@ -294,7 +328,7 @@ def process_file_as_per_config(
 
             success = True
             try:
-                run_method(*(str(local_data_file), ), **method_kwargs)
+                run_method(*(str(local_data_file),), **method_kwargs)
             except Exception as e:
                 logger.error(f"Error response from configured processor {processor.python}: {e}")
                 success = False
@@ -303,6 +337,6 @@ def process_file_as_per_config(
             if processor.python.supports_pizza_tracker:
                 logger.debug('processor supports pizza tracker, will start tracker process')
             else:
-                logger.warning(f'processor {config_object_id} does not support pizza tracker')
+                logger.warning(f'processor does not support pizza tracker')
 
     return success
