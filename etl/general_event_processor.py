@@ -126,6 +126,10 @@ class GeneralEventProcessor:
                     metadata['originalFilename'] = file_name
                     metadata['id'] = obj_uuid
 
+                    print('YOYO DEBUG')
+                    print(f'object ID {evt.object_id}')
+                    print(f'dest ID {dest_object_id}')
+
                     self._object_store.move_object(evt.object_id, dest_object_id, metadata)
 
     async def move_to_processing(self, job_id: str, object_id: ObjectId, processing_path_object_id: ObjectId):
@@ -146,11 +150,6 @@ class GeneralEventProcessor:
 
         metadata = self._object_store.retrieve_object_metadata(object_id)
         worker_run_method: Optional[str] = metadata.get('X-Amz-Meta-Worker_run_method', None)
-
-
-        print('YOYO meta data received')
-        print(metadata)
-        print(worker_run_method)
 
         job_id: Optional[str] = None
         handler: Optional[str] = None
@@ -181,6 +180,7 @@ class GeneralEventProcessor:
                 job_id = short_uuid()
 
                 processor_matched = processor
+                handler = filename(config_object_id)
 
                 # Hypothetical file paths for each directory
                 processing_path_object_id: ObjectId = get_processing_path(config_object_id, processor_matched, object_id)
@@ -191,28 +191,21 @@ class GeneralEventProcessor:
                                                handler=handler,
                                                uploader='castiron')
 
-
-            self._message_producer.job_created(job_id=job_id,
-                                               filename=filename(object_id),
-                                               handler=filename(config_object_id),
-                                               uploader='castiron')
-
             # mv to processing
             await self.move_to_processing(job_id=job_id, object_id=object_id,
                                           processing_path_object_id=processing_path_object_id)
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
-                processing_path_object_id, job_id, processor_matched, worker_run_method, metadata, processing_path_object_id
+                processing_path_object_id, job_id, processor_matched, worker_run_method, metadata
             )
 
             # Update the Ray shared memory TaskManager with this task's uuid and reference
             await self._task_manager.add_task.remote(uuid, [task_reference])
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
-            # Keep track of the other params for a task for use in _event_loop
-            self._task_params[uuid] = (
-                processing_path_object_id, uuid, job_id, config_object_id, processor, metadata)
+            # Keep track of the other params for a task for use in _file_put_followup
+            self._task_params[uuid] = (processing_path_object_id, job_id, processor_matched, worker_run_method, metadata)
             return
 
     async def _file_put_followup(
@@ -302,12 +295,11 @@ class GeneralEventProcessor:
 
 @ray.remote
 def process_file(
-        object_id: ObjectId,
+        processing_file_object_id: ObjectId,
         job_id: str,
         processor: Optional[FileProcessorConfig],
         work_run_method: Optional[str],
-        metadata: dict,
-        processing_file_object_id: ObjectId
+        metadata: dict
 ) -> bool:
     '''
     :param processor: config from which to determine how to process the corresponding file, including worker_run_method,
@@ -322,7 +314,7 @@ def process_file(
     with tempfile.TemporaryDirectory() as work_dir:
         # Download to local temp working directory
         base_path = PurePosixPath(work_dir)
-        local_data_file = base_path / filename(object_id)
+        local_data_file = base_path / filename(processing_file_object_id)
         object_store.download_object(processing_file_object_id, str(local_data_file))
 
         with PizzaTracker(message_producer, work_dir, job_id) as pizza_tracker:
