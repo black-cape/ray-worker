@@ -13,11 +13,11 @@ done
 
 echo "Checking Minio Status"
   
-until curl $MINIO_HOST; do
+until curl "${MINIO_HOST}:${MINIO_PORT}"; do
   >&2 echo "Minio is unavailable - sleeping"
   sleep 1
 done
-  
+
 >&2 echo "Minio is up"
 
 ray start --head --port $RAY_HEAD_PORT \
