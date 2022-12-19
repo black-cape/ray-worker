@@ -205,7 +205,7 @@ class GeneralEventProcessor:
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
             # Keep track of the other params for a task for use in _file_put_followup
-            self._task_params[uuid] = (processing_path_object_id, job_id, processor_matched, worker_run_method, metadata)
+            self._task_params[uuid] = (processing_path_object_id, uuid, job_id, config_object_id, processor_matched, metadata)
             return
 
     async def _file_put_followup(
