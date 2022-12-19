@@ -62,15 +62,21 @@ class ConsumerWorkerManager:
         started_flag = False
         initial_check_complete = False
 
-        LOGGER.info("Start all workers...")
         if len(self.consumer_worker_container) == 0:
             started_flag = True
-            for _ in itertools.repeat(None, settings.num_consumer_workers):
-                worker_actor: ActorHandle = ConsumerWorker.remote(self.toml_processor, self.task_manager)
+            LOGGER.info("Start S3 Bucket Workflow Workers...")
+            for _ in itertools.repeat(None, settings.num_s3_workflow_workers):
+                worker_actor: ActorHandle = S3BucketWorkflowWorker.remote(self.toml_processor, self.task_manager)
                 # [WS] NOTE: the initial check should be only run by one single ConsumerWorker, so we pass this boolean
                 # value through here as False once (prompting a check) and then True for the rest (no check).
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
+                self.consumer_worker_container.append(worker_actor)
+
+            LOGGER.info("Start Text Payload Streaming Workers...")
+            for _ in itertools.repeat(None, settings.num_text_streaming_workers):
+                worker_actor: ActorHandle = StreamingTextPayloadWorker.remote()
+                worker_actor.run.remote()
                 self.consumer_worker_container.append(worker_actor)
 
         if not started_flag:
@@ -83,27 +89,18 @@ class ConsumerWorkerManager:
         return True
 
 
-@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
-class ConsumerWorker:
-
-    def __init__(self, toml_processor: TOMLProcessor, task_manager: TaskManager):
-        self.consumer_name = settings.consumer_grp_etl_source_file
+class BaseConsumerWorker:
+    def __init__(self, consumer_name, topic):
         self.stop_worker = False
         self.auto_offset_reset = 'earliest'
         self.poll_timeout_ms = 1000
         self.is_closed = False
-        self.toml_processor = toml_processor
-        # Configuration assumes 1 processor per Kafka consumer
-        self.general_event_processor = GeneralEventProcessor.remote(
-            toml_processor=toml_processor, task_manager=task_manager
-        )
-
-        # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
-        # let the workers log to default Ray log organization
-        # also see https://stackoverflow.com/questions/55272066/how-can-i-use-the-python-logging-in-ray
+        self.topic = topic
+        self.consumer_name = consumer_name
+        self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000
         self.logger = get_logger(__name__)
 
-        self.consumer_stop_delay_seconds = 2 * self.poll_timeout_ms / 1000
+    def set_up_kafka_consumer(self):
         try:
             self.consumer = KafkaConsumer(
                 bootstrap_servers=settings.kafka_broker,
@@ -117,10 +114,11 @@ class ConsumerWorker:
                 max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
                 consumer_timeout_ms=30000
             )
-            self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            self.logger.info(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
+            self.consumer.subscribe([self.topic])
+            self.logger.info(f'Started consumer worker for topic {self.topic}...')
         except KafkaError as exc:
             self.logger.error(f"Exception {exc}")
+
 
     def stop_consumer(self) -> None:
         self.logger.info(f'Stopping consumer worker...')
@@ -132,6 +130,32 @@ class ConsumerWorker:
 
     def closed(self):
         return self.is_closed
+
+
+@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
+class StreamingTextPayloadWorker:
+    def __init__(self):
+        print('YOYO streaming text paylaod worker init !! ')
+        super().__init__(consumer_name=settings.consumer_grp_text_payload, topic=settings.kafka_topic_castiron_text_payload)
+        self.set_up_kafka_consumer()
+
+    async def run(self) -> None:
+        print('YOYO streaming text paylaod worker called ')
+        pass
+
+
+@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
+class S3BucketWorkflowWorker(BaseConsumerWorker):
+    #S3 compliant object store backed File processing workflow
+
+    def __init__(self, toml_processor: TOMLProcessor, task_manager: TaskManager):
+        super().__init__(consumer_name=settings.consumer_grp_etl_source_file, topic=settings.kafka_topic_castiron_etl_source_file)
+        self.toml_processor = toml_processor
+        # Configuration assumes 1 processor per Kafka consumer
+        self.general_event_processor = GeneralEventProcessor.remote(
+            toml_processor=toml_processor, task_manager=task_manager
+        )
+        self.set_up_kafka_consumer()
 
     async def run(self, initial_check_complete: bool) -> None:
         """

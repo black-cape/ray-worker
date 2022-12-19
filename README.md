@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-This Cast-Iron Worker example leverages several Python libraries to accomplish the ETL process.
+This Cast-Iron Worker example leverages several Python libraries to accomplish distributed File workflow
 * [Ray](https://ray.io)
 * [Kafka](https://github.com/dpkp/kafka-python)
 * [Minio](https://docs.min.io/docs/python-client-api-reference.html)
@@ -44,7 +44,16 @@ $ poetry install
     $ docker-compose -f docker-compose-single.yml up --build 
     ```
 
-## Utlize the ETL
+## Streaming Text Payload Workflow
+
+
+## Streaming Video Workflow 
+
+coming soon
+
+## S3 Compliant Object Store Backed File Workflow
+
+### Example workflow
 
 With the docker containers running and the worker running in either a container or locally
 1. Navigate to MinIO `http://localhost:9000`
