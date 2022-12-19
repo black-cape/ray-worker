@@ -303,6 +303,11 @@ def process_file(
         metadata: dict,
         processing_file_object_id: ObjectId
 ) -> bool:
+    '''
+    :param processor: config from which to determine how to process the corresponding file, including worker_run_method,
+    which can be overridden by a separate "worker_run_method"
+    :param work_run_method: if specified, ignores the FileProcessorConfig and invoke the method specified directly
+    '''
     """ Remote (non-actor) task for running the configured processing method for a file """
     message_producer = KafkaMessageProducer()
     object_store = MinioObjectStore()
@@ -317,7 +322,7 @@ def process_file(
         with PizzaTracker(message_producer, work_dir, job_id) as pizza_tracker:
             # TODO branch off here, if in metadata, go ahead and call it
             # pizza tracker has to be called in main thread as it needs things like Kafka connector
-            run_method = load_python_processor(processor.python)
+            run_method = work_run_method if work_run_method else load_python_processor(processor.python)
             method_kwargs = {}
             if processor.python.supports_pizza_tracker:
                 method_kwargs['pizza_tracker'] = pizza_tracker.pipe_file_name

@@ -44,9 +44,6 @@ class MinioObjectStore(ObjectStore):
     """Implements the ObjectStore interface using Minio as the backend service"""
 
     def __init__(self):
-        print('YOYO see me')
-        print(settings)
-
         self._minio_client = Minio(
             f'{settings.minio_host}:{settings.minio_port}',
             access_key=settings.minio_root_user,
