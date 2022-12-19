@@ -19,7 +19,12 @@ class ClickHouseDatabase(DatabaseStore):
 
     async def insert_file(self, filedata: FileObject):
         """ Track a new file from Minio"""
+        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
+            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+            return
+
         client: Client = None
+
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             sql = f'INSERT INTO cast_iron_file_status ({",".join(FileObject.__fields__.keys())}) VALUES'
@@ -32,7 +37,12 @@ class ClickHouseDatabase(DatabaseStore):
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
         """ Update the file status/state """
+        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
+            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+            return
+
         client: Client = None
+
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
@@ -47,6 +57,10 @@ class ClickHouseDatabase(DatabaseStore):
 
     async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
         """ Update the file status/state and the file name """
+        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
+            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+            return
+
         client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
@@ -61,6 +75,10 @@ class ClickHouseDatabase(DatabaseStore):
                 client.disconnect()
 
     async def delete_file(self, rowid: str) -> None:
+        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
+            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+            return
+
         client: Client = None
         try:
             client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
@@ -73,6 +91,10 @@ class ClickHouseDatabase(DatabaseStore):
                 client.disconnect()
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
+        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
+            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+            return
+
         sql = f"SELECT * FROM cast_iron_file_status WHERE 1 = 1 "
 
         client: Client = None
