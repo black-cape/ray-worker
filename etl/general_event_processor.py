@@ -145,7 +145,13 @@ class GeneralEventProcessor:
         processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
 
         metadata = self._object_store.retrieve_object_metadata(object_id)
-        worker_run_method: Optional[str] = metadata.get('X-Amz-Meta-worker_run_method', None)
+        worker_run_method: Optional[str] = metadata.get('X-Amz-Meta-Worker_run_method', None)
+
+
+        print('YOYO meta data received')
+        print(metadata)
+        print(worker_run_method)
+
         job_id: Optional[str] = None
         handler: Optional[str] = None
         processing_path_object_id: Optional[ObjectId] = None
