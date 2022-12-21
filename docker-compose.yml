@@ -17,14 +17,17 @@ services:
   kafka:
     image: wurstmeister/kafka
     ports:
-      - "9092:9092"
+      - "9093:9093"
     environment:
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_CREATE_TOPICS: "greetings:1:1,castiron_etl_config:1:1,castiron_etl_source_file:4:1"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-    depends_on:
-      zookeeper:
-        condition: service_healthy
+      KAFKA_LISTENERS: "INTERNAL_PLAINTEXT://0.0.0.0:9092,EXTERNAL_PLAINTEXT://0.0.0.0:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL_PLAINTEXT:PLAINTEXT,EXTERNAL_PLAINTEXT:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL_PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL_PLAINTEXT://kafka:9092,EXTERNAL_PLAINTEXT://localhost:9093"
+    depends_on: # should be started after
+      - zookeeper
     healthcheck:
       test: ["CMD", "nc", "-vz", "localhost", "9092"]
       interval: 10s
@@ -78,6 +81,8 @@ services:
       RAY_OBJECT_MANAGER_PORT: 6381
       RAY_MIN_WORKER_PORT: 10002
       RAY_MAX_WORKER_PORT: 19999
+    volumes:
+      - ./etl:/app/etl
     depends_on:
       kafka:
         condition: service_healthy

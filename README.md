@@ -2,13 +2,14 @@
 
 ## Getting Started
 
-This Cast-Iron Worker example leverages several Python libraries to accomplish the ETL process.
+This Ray Cast-Iron Worker example leverages several Python libraries to accomplish distributed File workflow
 * [Ray](https://ray.io)
 * [Kafka](https://github.com/dpkp/kafka-python)
+* [Clickhouse](https://clickhouse.com/)
 * [Minio](https://docs.min.io/docs/python-client-api-reference.html)
 * [Pydantic](https://pydantic-docs.helpmanual.io/)
 * [Toml](https://github.com/uiri/toml)
-* [urllib3](https://urllib3.readthedocs.io/en/latest/)
+
 
 ## Installing Dependencies
 
@@ -31,29 +32,41 @@ $ poetry install
 
 ## Start the Worker
 
-1. Add `127.0.0.1 kafka` entry to your /etc/hosts file
-1. Start the Cast-Iron Ray-based ETL worker
-    * Locally
-    ```
-    $ poetry shell
-    $ uvicorn --host 0.0.0.0 --port 8080 etl.app_manager:app
-    ```
-      - To run with a debugger use `python worker.py`
-    * Docker (with the Cast Iron Project)
-    ```
-    $ docker-compose -f docker-compose-single.yml up --build 
-    ```
+Run 
+`docker-compose up -d`
 
-## Utlize the ETL
+## Streaming Text Payload Workflow
+
+Ray Cast Iron Worker listens for message send to the topic named `castiron_text_payload` in the following format
+
+``` {'worker_run_method': worker_run_method, 'data': data, 'arg1': 'test', 'arg2': 'test2'}```
+
+data string will be executed against the Python method specified.  Any other field value pairs in the messsage payload
+are submitted into the same method as keyed arguments
+
+
+## Streaming Video Workflow 
+
+coming soon
+
+## S3 Compliant Object Store Backed File Workflow
+
+### Example workflow
 
 With the docker containers running and the worker running in either a container or locally
-1. Navigate to MinIO `http://localhost:9000`
-1. Add `example_config.toml` to the `etl` bucket
-1. Refresh the page to verify that additional etl buckets are created
-1. Navigate into `01_inbox`
-1. Add `data/data_test.tsv`
-1. TSV should be ETL-ed
-1. TSV moves to the `archive_dir` bucket
+1. Navigate to MinIO `http://localhost:9000`, login using user: castiron, pass: castiron
+2. Add `example/example_config.toml` to the `etl` bucket
+3. Refresh the page to verify that additional etl buckets are created
+![img.png](img.png)
+4. Navigate into `01_inbox`
+5. Add `example/test.csv`
+![img_1.png](img_1.png)
+6. Observe the log for Ray Cast Iron Worker
+```docker logs -f ray-cast-iron-worker```
+
+The configured example processor will simply output the file you just dropped
+![img_2.png](img_2.png)
+8. The test.csv file will also be moved to the `archive_dir` bucket
 
 ### Matching files to processors
 The processor config `handled_file_glob` configures file extension pattern matching. The matchers should be provided as e.g. `_test.tsv|_updated.csv|.mp3` (no spaces).

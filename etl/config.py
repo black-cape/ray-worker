@@ -15,8 +15,13 @@ class Settings(BaseSettings):
 
     # Kafka configs
     kafka_broker: str = 'UNSET'
+
     kafka_topic_castiron_etl_source_file = 'castiron_etl_source_file'
     consumer_grp_etl_source_file = 'etl-source-file-grp'
+
+    kafka_topic_castiron_text_payload = 'castiron_text_payload'
+    consumer_grp_text_payload = 'text-playload-grp'
+
     kafka_enable_auto_commit: bool = True
     kafka_max_poll_records: int = 50
     kafka_max_poll_interval_ms: int = 600000
@@ -43,8 +48,11 @@ class Settings(BaseSettings):
     tika_host: str = 'UNSET'
 
     # Ray configs
-    # [WS] Cast Iron will create (num_consumer_workers * 2) + 2 actors, plus schedule remote tasks up to the CPU limit
-    num_consumer_workers: int = 5
+    # [WS] Cast Iron will create (num_s3_workflow_workers * 2) + 2 actors + num_text_streaming_workers text
+    # streaming worker, plus schedule remote tasks up to the CPU limit
+    num_s3_workflow_workers: int = 5
+    num_text_streaming_workers: int = 1
+
     max_restarts: int = 2
     max_retries: int = 2
 

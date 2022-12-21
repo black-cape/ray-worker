@@ -19,7 +19,7 @@ file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
 
 @ray.remote
 class TOMLProcessor:
-    """A service that processes individual object events"""
+    """A service that processes individual object events associated with TOML Processor Config File"""
 
     def __init__(self):
         self._object_store = MinioObjectStore()
