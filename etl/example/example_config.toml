@@ -27,7 +27,7 @@ error_dir = "04_failed"
 save_error_log = true
 
 [castiron.etl.python]
-worker_run_method = "etl.example_processor.process"
+worker_run_method = "etl.example.example_text_processor.process"
 supports_metadata = true
 
 [castiron.etl.python.static_kwargs]
