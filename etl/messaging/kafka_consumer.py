@@ -11,7 +11,7 @@ from etl.task_manager import TaskManager
 from etl.toml_processor import TOMLProcessor
 from etl.util import get_logger
 from etl.messaging.s3_bucket_workflow_worker import S3BucketWorkFlowWorker
-from etl.messaging.streaming_txt_payload_worker import StreamingTextPayloadWorker
+from etl.messaging.streaming_payload_worker import StreamingPayloadWorker
 
 LOGGER = get_logger(__name__)
 
@@ -73,7 +73,15 @@ class ConsumerWorkerManager:
 
             LOGGER.info("Start Text Payload Streaming Workers...")
             for _ in itertools.repeat(None, settings.num_text_streaming_workers):
-                worker_actor: ActorHandle = StreamingTextPayloadWorker.remote()
+                worker_actor: ActorHandle = StreamingPayloadWorker.remote(settings.consumer_grp_streaming_text_payload,
+                                                                          settings.kafka_topic_castiron_text_payload)
+                worker_actor.run.remote()
+                self.consumer_worker_container.append(worker_actor)
+
+            LOGGER.info("Start Video Payload Streaming Workers...")
+            for _ in itertools.repeat(None, settings.num_video_streaming_workers):
+                worker_actor: ActorHandle = StreamingPayloadWorker.remote(settings.consumer_grp_streaming_video_payload,
+                                                                          settings.kafka_topic_castiron_video_payload)
                 worker_actor.run.remote()
                 self.consumer_worker_container.append(worker_actor)
 

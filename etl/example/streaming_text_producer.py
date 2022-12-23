@@ -2,10 +2,11 @@ import click
 from kafka import KafkaProducer
 import time
 import json
+from etl.example import KAFKA_BOOTSTRAP_SERVER, KAFKA_TOPIC_CASTIRON_TEXT_PAYLOAD
 
 @click.command()
-@click.option('--boot-strap-server', default='localhost:9093', help='boot strap server')
-@click.option('--kafka-topic', default='castiron_text_payload', help='kafka topic with which to listen')
+@click.option('--boot-strap-server', default=KAFKA_BOOTSTRAP_SERVER, help='boot strap server')
+@click.option('--kafka-topic', default=KAFKA_TOPIC_CASTIRON_TEXT_PAYLOAD, help='kafka topic with which to listen')
 @click.option('--worker-run-method', default='etl.example.example_text_stream_processor.process', help='kafka topic with which to listen')
 def main(kafka_topic: str, boot_strap_server: str, worker_run_method: str):
     k = KafkaProducer(bootstrap_servers=[boot_strap_server])

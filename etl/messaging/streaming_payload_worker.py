@@ -21,8 +21,8 @@ MSG_KEY_DATA = "data"
 
 # unfortunately making a super class in Ray is not easy/supported https://github.com/ray-project/ray/issues/449
 @ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
-class StreamingTextPayloadWorker():
-    def __init__(self):
+class StreamingPayloadWorker():
+    def __init__(self, group_id: str, kafka_topic: str):
         self.stop_worker = False
         self.is_closed = False
         # see https://docs.ray.io/en/latest/ray-observability/ray-logging.html
@@ -35,17 +35,18 @@ class StreamingTextPayloadWorker():
             self.consumer = KafkaConsumer(
                 bootstrap_servers=settings.kafka_broker,
                 client_id=str(uuid.uuid4()),
-                group_id=settings.consumer_grp_text_payload,
+                group_id=group_id,
                 key_deserializer=lambda k: k.decode('utf-8') if k is not None else k,
                 value_deserializer=lambda v: json.loads(v) if v is not None else v,
                 auto_offset_reset='earliest',
                 enable_auto_commit=settings.kafka_enable_auto_commit,
+                max_partition_fetch_bytes=settings.kafka_max_partition_fetch_bytes,
                 max_poll_records=settings.kafka_max_poll_records,
                 max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
                 consumer_timeout_ms=30000
             )
-            self.consumer.subscribe([settings.kafka_topic_castiron_text_payload])
-            self.logger.info(f'Started consumer worker for topic {settings.kafka_topic_castiron_text_payload}...')
+            self.consumer.subscribe([kafka_topic])
+            self.logger.info(f'Started consumer worker for topic {kafka_topic}...')
         except KafkaError as exc:
             self.logger.error(f"Exception {exc}")
 

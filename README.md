@@ -46,7 +46,7 @@ are submitted into the same method as keyed arguments
 
 To see this, run the following
 
-``` poetry run python etl/example/generic_kafka_producer.py```
+``` poetry run python etl/example/streaming_text_producer.py```
 
 Observe the logs for Ray Cast Iron Worker
 ```docker logs -f ray-cast-iron-worker```  
