@@ -4,6 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Ken <ken@blackcape.io>"]
 
+packages = [
+    { include = "etl"}
+]
+
 [tool.poetry.dependencies]
 python = "^3.8.11"
 ray = {extras = ["default"], version = "^2.0.0"}

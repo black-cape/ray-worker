@@ -44,6 +44,26 @@ Ray Cast Iron Worker listens for message send to the topic named `castiron_text_
 data string will be executed against the Python method specified.  Any other field value pairs in the messsage payload
 are submitted into the same method as keyed arguments
 
+To see this, run the following
+
+``` poetry run python etl/example/streaming_text_producer.py```
+
+Observe the logs for Ray Cast Iron Worker
+```docker logs -f ray-cast-iron-worker```  
+
+You should see something to the effect of
+```commandline
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) INFO:etl.messaging.streaming_txt_payload_worker:invoking etl.example.example_text_stream_processor.process with arg_list {'arg1': 'test', 'arg2': 'test2'}
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) INFO:etl.messaging.streaming_txt_payload_worker:invoking etl.example.example_text_stream_processor.process with arg_list {'arg1': 'test', 'arg2': 'test2'}
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text stream processor got data {"field1": 1, "field2": 2}
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text stream processor got data {"field1": 1, "field2": 2}
+ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
+```
+
+
+
 
 ## Streaming Video Workflow 
 
@@ -55,11 +75,11 @@ coming soon
 
 With the docker containers running and the worker running in either a container or locally
 1. Navigate to MinIO `http://localhost:9000`, login using user: castiron, pass: castiron
-2. Add `example/example_config.toml` to the `etl` bucket
+2. Add `etl/example/example_config.toml` to the `etl` bucket
 3. Refresh the page to verify that additional etl buckets are created
 ![img.png](img.png)
 4. Navigate into `01_inbox`
-5. Add `example/test.csv`
+5. Add `etl/example/test.csv`
 ![img_1.png](img_1.png)
 6. Observe the log for Ray Cast Iron Worker
 ```docker logs -f ray-cast-iron-worker```

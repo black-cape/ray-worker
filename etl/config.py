@@ -17,14 +17,17 @@ class Settings(BaseSettings):
     kafka_broker: str = 'UNSET'
 
     kafka_topic_castiron_etl_source_file = 'castiron_etl_source_file'
-    consumer_grp_etl_source_file = 'etl-source-file-grp'
-
     kafka_topic_castiron_text_payload = 'castiron_text_payload'
-    consumer_grp_text_payload = 'text-playload-grp'
+    kafka_topic_castiron_video_payload = 'castiron_video_payload'
+
+    consumer_grp_etl_source_file = 'etl-source-file-grp'
+    consumer_grp_streaming_text_payload = 'streaming-text-playload-grp'
+    consumer_grp_streaming_video_payload = 'streaming-video-playload-grp'
 
     kafka_enable_auto_commit: bool = True
     kafka_max_poll_records: int = 50
     kafka_max_poll_interval_ms: int = 600000
+    kafka_max_partition_fetch_bytes: int = 20971520 #20MB, need to handle video
     kafka_pizza_tracker_topic: str = 'pizza-tracker'
 
     # Minio configs
@@ -52,6 +55,7 @@ class Settings(BaseSettings):
     # streaming worker, plus schedule remote tasks up to the CPU limit
     num_s3_workflow_workers: int = 5
     num_text_streaming_workers: int = 1
+    num_video_streaming_workers: int = 1
 
     max_restarts: int = 2
     max_retries: int = 2
