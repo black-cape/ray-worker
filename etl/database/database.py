@@ -127,7 +127,14 @@ class ClickHouseDatabase(DatabaseStore):
     def parse_notification(self, evt_data: Any) -> FileObject:
         """ Parse a Minio notification to create a DB row """
         bucket_name, file_name = evt_data['Key'].split('/', 1)
+
+        print('debug')
+        print(evt_data)
+
         metadata = evt_data['Records'][0]['s3']['object'].get('userMetadata', {})
+
+        print(metadata)
+        print(type(metadata))
 
         classification_meta_obj_minio = json.loads(metadata['X-Amz-Meta-Classification']) \
             if metadata.get('X-Amz-Meta-Classification', None) else {}
