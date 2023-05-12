@@ -283,7 +283,11 @@ def process_file(
 
             success = True
             try:
-                run_method(*(str(local_data_file), ), **method_kwargs)
+                import asyncio
+                if asyncio.iscoroutinefunction(run_method):
+                    asyncio.run(run_method(*(str(local_data_file), ), **method_kwargs))
+                else:
+                    run_method(*(str(local_data_file), ), **method_kwargs)
             except Exception as e:
                 logger.error(f"Error response from configured processor {processor.python}: {e}")
                 success = False
