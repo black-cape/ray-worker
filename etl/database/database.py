@@ -33,7 +33,7 @@ class ClickHouseDatabase(DatabaseStore):
             LOGGER.error(f'unexpected error occured inserting a record in file tracking table {exc}')
         finally:
             if client:
-                client.disconnect()
+                await client.disconnect()
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
         """ Update the file status/state """
@@ -53,7 +53,7 @@ class ClickHouseDatabase(DatabaseStore):
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
         finally:
             if client:
-                client.disconnect()
+                await client.disconnect()
 
     async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
         """ Update the file status/state and the file name """
@@ -72,7 +72,7 @@ class ClickHouseDatabase(DatabaseStore):
             LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
         finally:
             if client:
-                client.disconnect()
+                await client.disconnect()
 
     async def delete_file(self, rowid: str) -> None:
         if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
@@ -88,7 +88,7 @@ class ClickHouseDatabase(DatabaseStore):
             LOGGER.error(f'unexpected error occured deleting a record {exc}')
         finally:
             if client:
-                client.disconnect()
+                await client.disconnect()
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
         if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
@@ -122,7 +122,7 @@ class ClickHouseDatabase(DatabaseStore):
             LOGGER.error(f'unexpected error occured querying file tracking table {exc}')
         finally:
             if client:
-                client.disconnect()
+                await client.disconnect()
 
     def parse_notification(self, evt_data: Any) -> FileObject:
         """ Parse a Minio notification to create a DB row """
