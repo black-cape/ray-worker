@@ -10,7 +10,6 @@ from uuid import uuid4
 import ray
 from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
 
-from etl.config import settings
 from etl.database.database import ClickHouseDatabase
 from etl.database.interfaces import (
     FileObject, STATUS_CANCELED, STATUS_FAILED, STATUS_PROCESSING, STATUS_QUEUED, STATUS_SUCCESS
@@ -41,7 +40,6 @@ class GeneralEventProcessor:
         self._message_producer = KafkaMessageProducer()
         self._object_store = MinioObjectStore()
         self._toml_processor = toml_processor
-        self._rest_client = create_rest_client()
         self._database = ClickHouseDatabase()
         self._task_params = {}
         self._task_manager = task_manager
@@ -138,8 +136,9 @@ class GeneralEventProcessor:
         for config_object_id, processor in processor_dict.items():
             if (
                 parent(object_id) != get_inbox_path(config_object_id, processor) or not processor_matches(
-                    object_id, config_object_id, processor, self._object_store, self._rest_client, settings.tika_host,
-                    settings.enable_tika
+                    object_id=object_id,
+                    config_object_id=config_object_id,
+                    cfg=processor
                 )
             ):
                 # File isn't in our inbox directory or filename doesn't match our glob pattern

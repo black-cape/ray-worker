@@ -9,8 +9,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8.11"
-ray = {extras = ["default"], version = "^2.0.0"}
+python = ">=3.8,<3.12"
 kafka-python = "<2.0.0"
 pydantic = "^1.9.0"
 fastapi = "^0.77.1"
@@ -19,6 +18,7 @@ minio = "^7.1.8"
 uvicorn = "^0.17.6"
 psutil = "^5.9.0"
 aioch = "^0.0.2"
+ray = "^2.7.1"
 
 [tool.poetry.dev-dependencies]
 pylint = "^2.15.0"

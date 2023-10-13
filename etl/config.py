@@ -47,8 +47,6 @@ class Settings(BaseSettings):
     connection_params: Optional[Dict]
     client_cert: Optional[str]
     client_key: Optional[str]
-    enable_tika: bool = False
-    tika_host: str = 'UNSET'
 
     # Ray configs
     # [WS] Cast Iron will create (num_s3_workflow_workers * 2) + 2 actors + num_text_streaming_workers text

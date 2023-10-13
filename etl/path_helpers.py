@@ -125,57 +125,10 @@ def glob_matches(object_id: ObjectId, config_object_id: ObjectId, cfg: FileProce
         LOGGER.error("Value error during glob matching: %s", value_error)
         return False
 
-
-def mimetype_matches(
-    object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig, object_store: ObjectStore,
-    rest_client: RestClient, tika_host: str
-) -> bool:
-    """Checks if the configured mimetype matches the inferred mimetype of the uploaded file"""
-    if object_id.namespace != config_object_id.namespace:
-        return False
-
-    try:
-        file_path = str(PurePosixPath(object_id.path).relative_to(parent(config_object_id).path))
-        file_name = file_path.split('/')[-1]
-        file_object = object_store.read_object(object_id)
-        mimetypes = cfg.handled_mimetypes.split(",") if cfg.handled_mimetypes else []
-
-        try:
-            response = rest_client.make_request(
-                f'{tika_host}/detect/stream',
-                method='put',
-                data=file_object,
-                headers={
-                    'Content-Type': 'application/octet-stream',
-                    'file-name': file_name
-                }
-            )
-            if not response or response.status_code != HTTPStatus.OK:
-                LOGGER.warning(f'Unexpected response from Tika service: {response.content}')
-            else:
-                detected_mimetype = response.text
-                LOGGER.info(f'Detected mimetype {detected_mimetype}')
-                # TODO maybe handle more complex mimetype lookups from mime.types file to provide mapping
-                # TODO from several mimetypes to single file extension types, allowing user to specify file type only.
-                for mimetype in mimetypes:
-                    if detected_mimetype == mimetype:
-                        return True
-        except Exception as e:
-            LOGGER.error('Failed to query Tika service for file mimetype', e)
-    except Exception as e:
-        LOGGER.error('Failed to read object from object store', e)
-
-    return False
-
-
 def processor_matches(
-    object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig, object_store: ObjectStore,
-    rest_client: RestClient, tika_host: str, enable_tika: bool
+    object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig
 ) -> bool:
     matches = False
-
-    if enable_tika:
-        matches = mimetype_matches(object_id, config_object_id, cfg, object_store, rest_client, tika_host)
 
     if not matches:
         matches = glob_matches(object_id, config_object_id, cfg)
