@@ -62,9 +62,6 @@ ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text str
 ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
 ```
 
-
-
-
 ## Streaming Video Workflow 
 
 coming soon
@@ -91,15 +88,9 @@ The configured example processor will simply output the file you just dropped
 ### Matching files to processors
 The processor config `handled_file_glob` configures file extension pattern matching. The matchers should be provided as e.g. `_test.tsv|_updated.csv|.mp3` (no spaces).
 
-The processor config `handled_mimetypes` specifies Tika mimetypes for a processor to match. Its value should be a comma-separated string of mimetypes, e.g. `application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document`
-* Note: in order to enable Tika mimetype matching, the environment setting `ENABLE_TIKA` must be set to a truthy value. See the `Settings` section below for details about environment settings.
-
 Files are matched to processors as such: for a single file, checks are made based on processor configurations, one processor at a time.
 * The first processor that is found to match the file is used to process the file, and the rest are ignored.
   * So if two processors could have each matched a file, the order in which the processors are checked determines which matches and which is ignored. 
-* One or the other, or both, of `handled_mimetypes` and `handled_file_glob` can be specified for a processor.
-  * If both are specified, mimetype checking is tried first, then file extension glob if mimetype failed or returned False for that processor.
-  * Each processor will check both mimetype and file extension glob matching before moving on to the next processor.
 
 ## Technology
 

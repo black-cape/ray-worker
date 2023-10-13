@@ -18,6 +18,9 @@ help: ## This info
 build: ## build the docker image
 	docker build -t cast-iron/ray-worker .
 
+up: ## Run the service and its docker dependencies, using a cached build if available
+	docker compose up --detach
+
 nag: sort lint type test ## Run all checks
 
 lint: ## Run pylint over the main project files

@@ -72,7 +72,6 @@ class FileProcessorConfig(BaseModel):
     """An ETL processor configuration."""
     enabled: bool
     handled_file_glob: str
-    handled_mimetypes: Optional[str]
     inbox_dir: str
     processing_dir: str
     archive_dir: Optional[str]

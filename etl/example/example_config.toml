@@ -8,9 +8,6 @@ enabled = true
 # A unix-like filename glob pattern indicating which filenames this handler will process
 handled_file_glob = ".csv|.CSV"
 
-# A comma-separated list of mimetypes this processor will handle. An empty string disables Tika mimetype checking.
-handled_mimetypes = "text/csv"
-
 # Directory relative to this file to accept new files to process. Will be created if absent
 inbox_dir = "01_inbox/"
 
