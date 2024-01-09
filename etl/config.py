@@ -3,8 +3,7 @@ The config module contains logic for loading, parsing, and formatting faust conf
 """
 from typing import Dict, Optional
 
-from pydantic import BaseSettings
-
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """Settings derived from command line, environment variables, .env file or defaults """
@@ -44,9 +43,9 @@ class Settings(BaseSettings):
     log_level: str = 'info'
 
     # Tika service settings
-    connection_params: Optional[Dict]
-    client_cert: Optional[str]
-    client_key: Optional[str]
+    connection_params: Optional[Dict] = None
+    client_cert: Optional[str] = None
+    client_key: Optional[str] = None
 
     # Ray configs
     # [WS] Cast Iron will create (num_s3_workflow_workers * 2) + 2 actors + num_text_streaming_workers text

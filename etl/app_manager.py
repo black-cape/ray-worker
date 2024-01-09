@@ -1,5 +1,5 @@
 import ray
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -22,14 +22,18 @@ app.add_middleware(
 
 cwm = ConsumerWorkerManager()
 
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    await bootstrap(application)
+    yield
+    await shutdown()
 
-@app.on_event('startup')
-def on_startup():
+
+async def bootstrap(application: FastAPI):
     cwm.start_all_workers()
 
 
-@app.on_event('shutdown')
-def on_shutdown():
+async def shutdown():
     cwm.stop_all_workers()
 
 

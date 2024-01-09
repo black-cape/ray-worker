@@ -26,7 +26,7 @@ from etl.path_helpers import (
 from etl.pizza_tracker import PizzaTracker
 from etl.task_manager import TaskManager
 from etl.toml_processor import TOMLProcessor
-from etl.util import create_rest_client, short_uuid, get_logger
+from etl.util import short_uuid, get_logger
 
 ERROR_LOG_SUFFIX = '_error_log_.txt'
 file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
