@@ -10,8 +10,9 @@ from etl.config import settings
 from etl.util import get_logger
 from etl.file_processor_config import load_member
 
+
 def process(data: str, **kwargs):
-    print(f'Got Data in streaming_txt_payload')
+    print("Got Data in streaming_txt_payload")
     print(data)
 
 
@@ -21,7 +22,7 @@ MSG_KEY_DATA = "data"
 
 # unfortunately making a super class in Ray is not easy/supported https://github.com/ray-project/ray/issues/449
 @ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
-class StreamingPayloadWorker():
+class StreamingPayloadWorker:
     def __init__(self, group_id: str, kafka_topic: str):
         self.stop_worker = False
         self.is_closed = False
@@ -33,30 +34,30 @@ class StreamingPayloadWorker():
         self.consumer_stop_delay_seconds = 2
         try:
             self.consumer = KafkaConsumer(
-                bootstrap_servers=settings.kafka_broker,
+                bootstrap_servers=settings.kafka_bootstrap_server,
                 client_id=str(uuid.uuid4()),
                 group_id=group_id,
-                key_deserializer=lambda k: k.decode('utf-8') if k is not None else k,
+                key_deserializer=lambda k: k.decode("utf-8") if k is not None else k,
                 value_deserializer=lambda v: json.loads(v) if v is not None else v,
-                auto_offset_reset='earliest',
+                auto_offset_reset="earliest",
                 enable_auto_commit=settings.kafka_enable_auto_commit,
                 max_partition_fetch_bytes=settings.kafka_max_partition_fetch_bytes,
                 max_poll_records=settings.kafka_max_poll_records,
                 max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
-                consumer_timeout_ms=30000
+                consumer_timeout_ms=30000,
             )
             self.consumer.subscribe([kafka_topic])
-            self.logger.info(f'Started consumer worker for topic {kafka_topic}...')
+            self.logger.info("Started consumer worker for topic %s...", kafka_topic)
         except KafkaError as exc:
-            self.logger.error(f"Exception {exc}")
+            self.logger.error(exc)
 
     def stop_consumer(self) -> None:
-        self.logger.info(f'Stopping consumer worker...')
+        self.logger.info("Stopping consumer worker...")
         self.stop_worker = True
 
         # waiting for consumer to stop nicely
         time.sleep(self.consumer_stop_delay_seconds)
-        self.logger.info(f'Stopped consumer worker...')
+        self.logger.info("Stopped consumer worker...")
 
     def closed(self):
         return self.is_closed
@@ -75,12 +76,18 @@ class StreamingPayloadWorker():
                     try:
                         worker_run_method = record.value[MSG_KEY_WORKER_RUN_METHOD]
                         data: str = record.value[MSG_KEY_DATA]
-                        arg_list = {k: v for k, v in record.value.items() if k not in non_arg_keys}
-                        self.logger.info(f'invoking {worker_run_method} with arg_list {arg_list}')
+                        arg_list = {
+                            k: v
+                            for k, v in record.value.items()
+                            if k not in non_arg_keys
+                        }
+                        self.logger.info(
+                            "invoking %s with arg_list %s", worker_run_method, arg_list
+                        )
                         worker_run_callable = load_member(import_path=worker_run_method)
                         worker_run_callable(data=data, **arg_list)
                     except Exception as e:
-                        self.logger.error(f'Error processing record {record.value}')
+                        self.logger.error("Error processing record %s", record.value)
                         self.logger.error(e, exc_info=True)
 
             self.consumer.commit()

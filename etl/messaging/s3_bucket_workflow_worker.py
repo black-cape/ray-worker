@@ -12,10 +12,10 @@ from etl.task_manager import TaskManager
 from etl.toml_processor import TOMLProcessor
 from etl.util import get_logger
 
-#unfortunately making a super class in Ray is not easy/supported https://github.com/ray-project/ray/issues/449
-@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
-class S3BucketWorkFlowWorker():
 
+# unfortunately making a super class in Ray is not easy/supported https://github.com/ray-project/ray/issues/449
+@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
+class S3BucketWorkFlowWorker:
     def __init__(self, toml_processor: TOMLProcessor, task_manager: TaskManager):
         self.stop_worker = False
         self.is_closed = False
@@ -33,29 +33,32 @@ class S3BucketWorkFlowWorker():
         self.consumer_stop_delay_seconds = 2
         try:
             self.consumer = KafkaConsumer(
-                bootstrap_servers=settings.kafka_broker,
+                bootstrap_servers=settings.kafka_bootstrap_server,
                 client_id=str(uuid.uuid4()),
                 group_id=settings.consumer_grp_etl_source_file,
-                key_deserializer=lambda k: k.decode('utf-8') if k is not None else k,
+                key_deserializer=lambda k: k.decode("utf-8") if k is not None else k,
                 value_deserializer=lambda v: json.loads(v) if v is not None else v,
-                auto_offset_reset='earliest',
+                auto_offset_reset="earliest",
                 enable_auto_commit=settings.kafka_enable_auto_commit,
                 max_poll_records=settings.kafka_max_poll_records,
                 max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
-                consumer_timeout_ms=30000
+                consumer_timeout_ms=30000,
             )
             self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
-            self.logger.info(f'Started consumer worker for topic {settings.kafka_topic_castiron_etl_source_file}...')
+            self.logger.info(
+                "Started consumer worker for topic %s...",
+                settings.kafka_topic_castiron_etl_source_file,
+            )
         except KafkaError as exc:
-            self.logger.error(f"Exception {exc}")
+            self.logger.error(exc)
 
     def stop_consumer(self) -> None:
-        self.logger.info(f'Stopping consumer worker...')
+        self.logger.info("Stopping consumer worker...")
         self.stop_worker = True
 
         # waiting for consumer to stop nicely
         time.sleep(self.consumer_stop_delay_seconds)
-        self.logger.info(f'Stopped consumer worker...')
+        self.logger.info("Stopped consumer worker...")
 
     def closed(self):
         return self.is_closed
@@ -70,9 +73,11 @@ class S3BucketWorkFlowWorker():
             try:
                 self.general_event_processor.restart_processing_records.remote()
             except Exception as e:
-                self.logger.error(f"Error from file check: {e}")
+                self.logger.error(e)
         else:
-            self.logger.debug('Another ConsumerWorker is performing the initial check, skipping...')
+            self.logger.debug(
+                "Another ConsumerWorker is performing the initial check, skipping..."
+            )
 
         while not self.stop_worker:
             records_dict = self.consumer.poll(timeout_ms=1000, max_records=1)
@@ -84,7 +89,7 @@ class S3BucketWorkFlowWorker():
                 for topic_partition, consumer_records in records_dict.items():
                     for record in consumer_records:
                         minio_record = record.value
-                        if '.toml' in minio_record['Key']:
+                        if ".toml" in minio_record["Key"]:
                             # Needed to be a separate actor for shared memory access across nodes
                             await self.toml_processor.process.remote(minio_record)
                             # Wait for new toml processing to complete, then restart queued records in case any match it
@@ -100,5 +105,5 @@ class S3BucketWorkFlowWorker():
                     self.is_closed = True
                     break
             except Exception as e:
-                self.logger.error('Error while running consumer worker!')
+                self.logger.error("Error while running consumer worker!")
                 self.logger.error(e, exc_info=True)

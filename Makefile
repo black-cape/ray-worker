@@ -1,15 +1,8 @@
-SHELL := /bin/bash
+#!/usr/bin/make
 
-.PHONY: $(SERVICES) logs
+include project.env
 
-## NOTE: Add this to your .bashrc to enable make target tab completion
-##    complete -W "\`grep -oE '^[a-zA-Z0-9_.-]+:([^=]|$)' ?akefile | sed 's/[^a-zA-Z0-9_.-]*$//'\`" make
-## Reference: https://stackoverflow.com/a/38415982
-
-help: ## This info
-	@echo '_________________'
-	@echo '| Make targets: |'
-	@echo '-----------------'
+help:: ## This info
 	@echo
 	@cat Makefile | grep -E '^[a-zA-Z\/_-]+:.*?## .*$$' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 	@echo
@@ -20,21 +13,33 @@ install: ## Install project dependencies
 	poetry install
 
 build: ## build the docker image
+	@echo "Running $@"
 	docker build -t cast-iron/ray-worker .
 
+info: ## show where all the services are
+	@echo "Minio available at http://localhost:${MINIO_PORT}"
+
 up: ## Run the service and its docker dependencies, using a cached build if available
-	docker compose up --detach
+	@echo "Running $@"
+	docker compose --env-file=project.env up --detach
+	make info
+
+lint: ## Run pylint over the main project files
+	@echo "Running $@"
+	poetry run pylint etl --rcfile .pylintrc
+
+test: ## Run integration tests
+	@echo "Running $@"
+	poetry run coverage run --source etl -m pytest
+	poetry run coverage report -m
+	poetry run coverage html -d tests/htmlcov
+
+clean: ## Tear down all project assets
+	@echo "Running $@"
+	docker compose --env-file=project.env --file docker-compose.yml down -v
 
 setup: ## Perform application setup from a clean state
 	@echo "Running $@"
 	make install
 	make build
 	make up
-
-lint: ## Run pylint over the main project files
-	poetry run pylint etl --rcfile .pylintrc
-
-test: ## Run integration tests
-	poetry run coverage run --source etl -m pytest
-	poetry run coverage report -m
-	poetry run coverage html -d tests/htmlcov

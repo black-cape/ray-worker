@@ -13,7 +13,7 @@ This Ray Cast-Iron Worker example leverages several Python libraries to accompli
 
 ## Installing Dependencies
 
-* Install Python 3.8, preferably using [Pyenv](https://github.com/pyenv/pyenv)
+* Install Python 3.9, preferably using [Pyenv](https://github.com/pyenv/pyenv)
 ```bash
 $ pyenv install
 ```
@@ -23,17 +23,19 @@ $ curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-po
 ```
 * Install dependencies
 ```bash
-$ poetry install
+$ make install
 ```
-## Configure Cast Iron (using Ray Worker)
 
-1. Retrieve the Cast Iron project (https://github.com/black-cape/cast-iron)
-1. Replace the Worker_Dockerfile with the one included in this project
+## Start the Project
 
-## Start the Worker
+Run
+`make up`
 
-Run 
-`docker-compose up -d`
+
+## Stop the Project
+
+Run
+`make clean`
 
 ## Streaming Text Payload Workflow
 
@@ -49,7 +51,7 @@ To see this, run the following
 ``` poetry run python etl/example/streaming_text_producer.py```
 
 Observe the logs for Ray Cast Iron Worker
-```docker logs -f ray-cast-iron-worker```  
+```docker logs -f ray-cast-iron-worker```
 
 You should see something to the effect of
 ```commandline
@@ -62,7 +64,7 @@ ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text str
 ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
 ```
 
-## Streaming Video Workflow 
+## Streaming Video Workflow
 
 coming soon
 
@@ -90,7 +92,7 @@ The processor config `handled_file_glob` configures file extension pattern match
 
 Files are matched to processors as such: for a single file, checks are made based on processor configurations, one processor at a time.
 * The first processor that is found to match the file is used to process the file, and the rest are ignored.
-  * So if two processors could have each matched a file, the order in which the processors are checked determines which matches and which is ignored. 
+  * So if two processors could have each matched a file, the order in which the processors are checked determines which matches and which is ignored.
 
 ## Technology
 

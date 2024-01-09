@@ -17,17 +17,18 @@ LOGGER = get_logger(__name__)
 
 ray._private.utils.get_system_memory = lambda: psutil.virtual_memory().total
 
-if settings.LOCAL_MODE == 'Y':
+if settings.LOCAL_MODE == "Y":
     ray.init()
 else:
     ray.init(address=settings.RAY_HEAD_ADDRESS)
 
 LOGGER.info(
-    '''This cluster consists of
+    """This cluster consists of
     {} nodes in total
     {} CPU resources in total
-'''.format(len(ray.nodes()),
-           ray.cluster_resources()['CPU'])
+""".format(
+        len(ray.nodes()), ray.cluster_resources()["CPU"]
+    )
 )
 
 
@@ -42,7 +43,7 @@ class ConsumerWorkerManager:
         self.toml_processor = TOMLProcessor.remote()
         self.task_manager = TaskManager.remote()
         processor_list = ray.get(self.toml_processor.get_processors.remote())
-        LOGGER.info(f'Available processors length: {len(processor_list)}')
+        LOGGER.info(f"Available processors length: {len(processor_list)}")
 
     def stop_all_workers(self):
         for worker_name, worker_actors in self.consumer_worker_container.items():
@@ -64,7 +65,9 @@ class ConsumerWorkerManager:
             started_flag = True
             LOGGER.info("Start S3 Bucket Workflow Workers...")
             for _ in itertools.repeat(None, settings.num_s3_workflow_workers):
-                worker_actor: ActorHandle = S3BucketWorkFlowWorker.remote(self.toml_processor, self.task_manager)
+                worker_actor: ActorHandle = S3BucketWorkFlowWorker.remote(
+                    self.toml_processor, self.task_manager
+                )
                 # [WS] NOTE: the initial check should be only run by one single ConsumerWorker, so we pass this boolean
                 # value through here as False once (prompting a check) and then True for the rest (no check).
                 worker_actor.run.remote(initial_check_complete)
@@ -73,24 +76,27 @@ class ConsumerWorkerManager:
 
             LOGGER.info("Start Text Payload Streaming Workers...")
             for _ in itertools.repeat(None, settings.num_text_streaming_workers):
-                worker_actor: ActorHandle = StreamingPayloadWorker.remote(settings.consumer_grp_streaming_text_payload,
-                                                                          settings.kafka_topic_castiron_text_payload)
+                worker_actor: ActorHandle = StreamingPayloadWorker.remote(
+                    settings.consumer_grp_streaming_text_payload,
+                    settings.kafka_topic_castiron_text_payload,
+                )
                 worker_actor.run.remote()
                 self.consumer_worker_container.append(worker_actor)
 
             LOGGER.info("Start Video Payload Streaming Workers...")
             for _ in itertools.repeat(None, settings.num_video_streaming_workers):
-                worker_actor: ActorHandle = StreamingPayloadWorker.remote(settings.consumer_grp_streaming_video_payload,
-                                                                          settings.kafka_topic_castiron_video_payload)
+                worker_actor: ActorHandle = StreamingPayloadWorker.remote(
+                    settings.consumer_grp_streaming_video_payload,
+                    settings.kafka_topic_castiron_video_payload,
+                )
                 worker_actor.run.remote()
                 self.consumer_worker_container.append(worker_actor)
 
         if not started_flag:
-            raise Exception(f'All Consumers already running')
+            raise Exception("All Consumers already running")
         LOGGER.info("All consumer workers started.")
 
     async def cancel_processing_task(self, task_uuid: str) -> bool:
-        LOGGER.info(f'Canceling task for UUID: {task_uuid}')
+        LOGGER.info("Canceling task for UUID: %s", task_uuid)
         await self.task_manager.cancel_task.remote(task_uuid)
         return True
-

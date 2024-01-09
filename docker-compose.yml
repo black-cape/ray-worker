@@ -5,40 +5,21 @@ services:
   # Message Queues
   kafka:
     image: bitnami/kafka:3.4.1
-    ports:
-      - "9093:9093"
-    environment:
-      KAFKA_CFG_NODE_ID: 0
-      KAFKA_CFG_PROCESS_ROLES: controller,broker
-      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
   # Object Storage
   minio:
     image: minio/minio:RELEASE.2023-10-07T15-07-38Z
-    environment:
-      MINIO_ROOT_USER: castiron
-      MINIO_ROOT_PASSWORD: castiron
-      #for more information see https://docs.min.io/docs/minio-bucket-notification-guide.html#apache-kafka
-      #the following represent two sets of configs for two separate MINIO notification ARN
-      MINIO_NOTIFY_KAFKA_BROKERS_config: kafka:9092
-      MINIO_NOTIFY_KAFKA_ENABLE_config: 'on'
-      MINIO_NOTIFY_KAFKA_TOPIC_config: castiron_etl_config
-      MINIO_NOTIFY_KAFKA_BROKERS_source: kafka:9092
-      MINIO_NOTIFY_KAFKA_ENABLE_source: 'on'
-      MINIO_NOTIFY_KAFKA_TOPIC_source: castiron_etl_source_file
     entrypoint: /usr/bin/docker-entrypoint.sh server /data --console-address :9001
     ports:
-      - "9001:9001"
-      - "9000:9000"
+      - ${MINIO_PORT}:${MINIO_PORT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 20s
       start_period: 10s
       retries: 3
+    volumes:
+      - "data_mino_ray-worker:/data"
 
   ray_cast_iron_worker:
     build:
@@ -62,3 +43,6 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+
+volumes:
+  data_mino_ray-worker:

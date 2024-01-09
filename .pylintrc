@@ -112,7 +112,8 @@ disable=
     wrong-import-order,
     too-complex,
     too-many-locals,
-    too-many-nested-blocks
+    too-many-nested-blocks,
+    missing-param-doc
 
 
 [REPORTS]
