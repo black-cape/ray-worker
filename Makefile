@@ -14,6 +14,10 @@ help: ## This info
 	@cat Makefile | grep -E '^[a-zA-Z\/_-]+:.*?## .*$$' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 	@echo
 
+install: ## Install project dependencies
+	@echo "Running $@"
+	pre-commit install
+	poetry install
 
 build: ## build the docker image
 	docker build -t cast-iron/ray-worker .
@@ -21,21 +25,16 @@ build: ## build the docker image
 up: ## Run the service and its docker dependencies, using a cached build if available
 	docker compose up --detach
 
-nag: sort lint type test ## Run all checks
+setup: ## Perform application setup from a clean state
+	@echo "Running $@"
+	make install
+	make build
+	make up
 
 lint: ## Run pylint over the main project files
 	poetry run pylint etl --rcfile .pylintrc
-
-sort: ## Sort files
-	poetry run isort -rc etl tests
-
-yapf: ## Format files
-	poetry run yapf -ir etl tests
 
 test: ## Run integration tests
 	poetry run coverage run --source etl -m pytest
 	poetry run coverage report -m
 	poetry run coverage html -d tests/htmlcov
-
-type: ## Run mypy
-	poetry run mypy etl --ignore-missing-imports --follow-imports=skip
