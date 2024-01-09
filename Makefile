@@ -43,3 +43,8 @@ setup: ## Perform application setup from a clean state
 	make install
 	make build
 	make up
+
+version: ## Update this project version for a release [pass argument: type=(major,minor,patch)]
+	@echo "Running $@"
+	$(if $(type),@echo bumping version with type=$(type), $(error no bump type defined! add type=<major,minor,patch>))
+	bash -c "./scripts/version.sh bump_version $(type) python ./pyproject.toml ./scripts/"
