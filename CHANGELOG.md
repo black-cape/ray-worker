@@ -1,6 +1,6 @@
 # Ray Worker
 
-### 3.0.0
+### 4.0.0
 - Update to Pydantic 2
 
 ### 2.0.0
