@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ray-worker"
-version = "2.0.0"
+version = "4.0.0"
 description = ""
 authors = ["Ken <ken@blackcape.io>"]
 
@@ -11,18 +11,19 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 kafka-python = "<2.0.0"
-pydantic = "^1.9.0"
-fastapi = "^0.77.1"
 toml = "^0.10.2"
 minio = "^7.1.8"
 uvicorn = "^0.17.6"
 psutil = "^5.9.0"
 aioch = "^0.0.2"
-ray = "^2.7.1"
+fastapi = "=0.103.1"
+fastapi-offline = "=1.7.0"
+ray = "~2"
+pydantic = "~2"
+pydantic-settings = "~2"
 
 [tool.poetry.dev-dependencies]
-pylint = "^2.15.0"
-yapf = "^0.32.0"
+pylint = "^2.17.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

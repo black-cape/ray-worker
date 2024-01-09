@@ -5,7 +5,7 @@ from importlib import import_module
 from inspect import isclass
 from typing import Any, Callable, Dict, Optional
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, model_validator
 from toml import loads
 
 
@@ -58,15 +58,6 @@ class PythonProcessorConfig(BaseModel):
         'setup method or run method'
     )
 
-    @validator('worker_run_method')
-    def ensure_run_method(cls, val: str) -> str:
-        """Make sure the incoming values for the config has the worker_run_method set."""
-        # Validators are a class method
-        # pylint: disable=no-self-argument, no-self-use
-        if not val:
-            raise ValueError('The worker_run_method is not defined.')
-        return val
-
 
 class FileProcessorConfig(BaseModel):
     """An ETL processor configuration."""
@@ -82,15 +73,12 @@ class FileProcessorConfig(BaseModel):
     shell: Optional[str] = None
     python: Optional[PythonProcessorConfig] = None
 
-    @root_validator
-    def ensure_exec(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        """Ensure that either the shell or python values are provided."""
-        # Validators are a class method
-        # pylint: disable=no-self-argument, no-self-use
-        if not values.get('shell') and not values.get('python'):
+    @model_validator(mode="after")
+    def validate_exec(self):
+        if not self.shell and not self.python:
             raise ValueError('shell or python must be set')
 
-        return values
+        return self
 
 
 def try_loads(file_contents: str) -> FileProcessorConfig:

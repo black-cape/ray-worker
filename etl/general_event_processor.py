@@ -12,7 +12,12 @@ from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
 
 from etl.database.database import ClickHouseDatabase
 from etl.database.interfaces import (
-    FileObject, STATUS_CANCELED, STATUS_FAILED, STATUS_PROCESSING, STATUS_QUEUED, STATUS_SUCCESS
+    FileObject,
+    STATUS_CANCELED,
+    STATUS_FAILED,
+    STATUS_PROCESSING,
+    STATUS_QUEUED,
+    STATUS_SUCCESS,
 )
 from etl.file_processor_config import FileProcessorConfig, load_python_processor
 from etl.messaging.kafka_producer import KafkaMessageProducer
@@ -20,16 +25,23 @@ from etl.object_store.interfaces import EventType
 from etl.object_store.minio import MinioObjectStore
 from etl.object_store.object_id import ObjectId
 from etl.path_helpers import (
-    filename, get_archive_path, get_canceled_path, get_error_path, get_inbox_path, get_processing_path, parent,
-    processor_matches, rename
+    filename,
+    get_archive_path,
+    get_canceled_path,
+    get_error_path,
+    get_inbox_path,
+    get_processing_path,
+    parent,
+    processor_matches,
+    rename,
 )
 from etl.pizza_tracker import PizzaTracker
 from etl.task_manager import TaskManager
 from etl.toml_processor import TOMLProcessor
-from etl.util import create_rest_client, short_uuid, get_logger
+from etl.util import short_uuid, get_logger
 
-ERROR_LOG_SUFFIX = '_error_log_.txt'
-file_suffix_to_ignore = ['.toml', '.keep', ERROR_LOG_SUFFIX]
+ERROR_LOG_SUFFIX = "_error_log_.txt"
+file_suffix_to_ignore = [".toml", ".keep", ERROR_LOG_SUFFIX]
 
 
 @ray.remote
@@ -50,37 +62,40 @@ class GeneralEventProcessor:
         self.logger = get_logger(__name__)
 
         # Start event loop for handling processing results
-        event_loop = Thread(target=run, args=(self._event_loop(), ))
+        event_loop = Thread(target=run, args=(self._event_loop(),))
         event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
-        stuck_files: Optional[List[FileObject]] = await self._database.query(status=status)
-
-        if stuck_files:
-            self.logger.debug(f"Number of {status} files: {len(stuck_files)}")
+        if stuck_files := await self._database.query(status=status):
+            self.logger.debug("Number of %s files: %s", status, len(stuck_files))
 
             for stuck_file in stuck_files:
                 # New object. "Rename" object.
                 file_name = stuck_file.original_filename
-                new_path = f'01_inbox/{file_name}'
+                new_path = f"01_inbox/{file_name}"
                 src_object_id = ObjectId(stuck_file.bucket_name, stuck_file.file_name)
                 dest_object_id = ObjectId(stuck_file.bucket_name, new_path)
 
                 metadata = json.loads(stuck_file.metadata)
-                metadata.pop('originalFilename', None)
-                metadata.pop('X-Amz-Meta-Originalfilename', None)
-                metadata.pop('X-Amz-Meta-Id', None)
+                metadata.pop("originalFilename", None)
+                metadata.pop("X-Amz-Meta-Originalfilename", None)
+                metadata.pop("X-Amz-Meta-Id", None)
 
                 self.logger.debug(
-                    f"Moving file: {stuck_file.file_name} back to original filename: {new_path}"
-                    f" to restart processing..."
+                    "Moving file: %s back to original filename: %s to restart processing...",
+                    stuck_file.file_name,
+                    new_path,
                 )
 
                 try:
-                    self._object_store.move_object(src_object_id, dest_object_id, metadata)
+                    self._object_store.move_object(
+                        src_object_id, dest_object_id, metadata
+                    )
                     await self._database.delete_file(rowid=stuck_file.id)
                 except Exception as e:
-                    self.logger.error(f"Error restoring file. Possible database/Minio mismatch: {e}")
+                    self.logger.error(
+                        "Error restoring file. Possible database/Minio mismatch: %s", e
+                    )
 
     async def restart_processing_records(self) -> None:
         await self._restart_stuck_records(STATUS_PROCESSING)
@@ -106,118 +121,178 @@ class GeneralEventProcessor:
                 if evt.original_filename:
                     if not evt.event_status:
                         self.logger.info(
-                            f'a file is renamed and placed back in Minio again at {obj_path}, renaming file'
+                            "a file is renamed and placed back in Minio again at %s, renaming file",
+                            obj_path,
                         )
                         db_evt: FileObject = self._database.parse_notification(evt_data)
                         await self._database.insert_file(db_evt)
                         await self._file_put(evt.object_id, db_evt.id)
                 else:
-                    self.logger.info(f'new file drop detected at {obj_path}, renaming file')
+                    self.logger.info(
+                        "new file drop detected at %s, renaming file", obj_path
+                    )
                     dirpath = obj_path.parent
                     file_name = obj_path.name
                     obj_uuid = str(uuid4())
-                    new_path = f'{dirpath}/{obj_uuid}-{file_name}'
-                    dest_object_id = ObjectId(evt.object_id.namespace, f'{new_path}')
+                    new_path = f"{dirpath}/{obj_uuid}-{file_name}"
+                    dest_object_id = ObjectId(evt.object_id.namespace, f"{new_path}")
 
-                    metadata = evt_data['Records'][0]['s3']['object'].get('userMetadata', {})
-                    metadata['originalFilename'] = file_name
-                    metadata['id'] = obj_uuid
+                    metadata = evt_data["Records"][0]["s3"]["object"].get(
+                        "userMetadata", {}
+                    )
+                    metadata["originalFilename"] = file_name
+                    metadata["id"] = obj_uuid
 
-                    self._object_store.move_object(evt.object_id, dest_object_id, metadata)
+                    self._object_store.move_object(
+                        evt.object_id, dest_object_id, metadata
+                    )
 
     async def _file_put(self, object_id: ObjectId, uuid: str):
         """
         Handle possible data file puts, look for matching toml processor to process it.
         """
         # pylint: disable=too-many-locals,too-many-branches, too-many-statements
-        self.logger.info(f'received file put event for path {object_id}')
+        self.logger.info("received file put event for path %s", object_id)
 
-        processor_dict: Dict[ObjectId, FileProcessorConfig] = await self._toml_processor.get_processors.remote()
+        processor_dict: Dict[
+            ObjectId, FileProcessorConfig
+        ] = await self._toml_processor.get_processors.remote()
         for config_object_id, processor in processor_dict.items():
-            if (
-                parent(object_id) != get_inbox_path(config_object_id, processor) or not processor_matches(
-                    object_id=object_id,
-                    config_object_id=config_object_id,
-                    cfg=processor
-                )
+            if parent(object_id) != get_inbox_path(
+                config_object_id, processor
+            ) or not processor_matches(
+                object_id=object_id, config_object_id=config_object_id, cfg=processor
             ):
                 # File isn't in our inbox directory or filename doesn't match our glob pattern
                 continue
 
-            self.logger.info(f'matching ETL processing config found, processing {config_object_id}')
+            self.logger.info(
+                "matching ETL processing config found, processing %s", config_object_id
+            )
 
             # Hypothetical file paths for each directory
-            processing_file = get_processing_path(config_object_id, processor, object_id)
+            processing_file = get_processing_path(
+                config_object_id, processor, object_id
+            )
 
             job_id = short_uuid()
-            self._message_producer.job_created(job_id, filename(object_id), filename(config_object_id), 'castiron')
+            self._message_producer.job_created(
+                job_id, filename(object_id), filename(config_object_id), "castiron"
+            )
 
             # mv to processing
             metadata = self._object_store.retrieve_object_metadata(object_id)
-            metadata['status'] = STATUS_PROCESSING
+            metadata["status"] = STATUS_PROCESSING
             self._object_store.move_object(object_id, processing_file, metadata)
-            await self._database.update_status_and_fileName(uuid, STATUS_PROCESSING, processing_file.path)
+            await self._database.update_status_and_fileName(
+                uuid, STATUS_PROCESSING, processing_file.path
+            )
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
-                processing_file, job_id, config_object_id, processor, metadata, processing_file
+                processing_file,
+                job_id,
+                config_object_id,
+                processor,
+                metadata,
+                processing_file,
             )
             # Update the Ray shared memory TaskManager with this task's uuid and reference
             await self._task_manager.add_task.remote(uuid, [task_reference])
             # Update our local task_reference->uuid lookup for tracking when it completes
             self._pending_tasks[task_reference] = uuid
             # Keep track of the other params for a task for use in _file_put_followup
-            self._task_params[uuid] = (processing_file, uuid, job_id, config_object_id, processor, metadata)
+            self._task_params[uuid] = (
+                processing_file,
+                uuid,
+                job_id,
+                config_object_id,
+                processor,
+                metadata,
+            )
             return
 
     async def _file_put_followup(
-        self, object_id: ObjectId, uuid: str, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig,
-        metadata: Dict, status: str, local_database: ClickHouseDatabase
+        self,
+        object_id: ObjectId,
+        uuid: str,
+        job_id: str,
+        config_object_id: ObjectId,
+        processor: FileProcessorConfig,
+        metadata: Dict,
+        status: str,
+        local_database: ClickHouseDatabase,
     ):
         """
         Handle followup steps after processing completes for a file.
         """
         # Hypothetical file paths for each directory
         processing_file = get_processing_path(config_object_id, processor, object_id)
-        archive_file: Optional[ObjectId] = get_archive_path(config_object_id, processor, object_id)
+        archive_file: Optional[ObjectId] = get_archive_path(
+            config_object_id, processor, object_id
+        )
         error_file = get_error_path(config_object_id, processor, object_id)
-        canceled_file: ObjectId = get_canceled_path(config_object_id, processor, object_id)
-        error_log_file_name = f'{filename(object_id).replace(".", "_")}{ERROR_LOG_SUFFIX}'
-        error_log_file = get_error_path(config_object_id, processor, rename(object_id, error_log_file_name))
+        canceled_file: ObjectId = get_canceled_path(
+            config_object_id, processor, object_id
+        )
+        error_log_file_name = (
+            f'{filename(object_id).replace(".", "_")}{ERROR_LOG_SUFFIX}'
+        )
+        error_log_file = get_error_path(
+            config_object_id, processor, rename(object_id, error_log_file_name)
+        )
 
         if status == STATUS_FAILED:
             with tempfile.TemporaryDirectory() as work_dir:
                 base_path = PurePosixPath(work_dir)
-                with open(base_path / 'out.txt', 'w') as out:
+                with open(base_path / "out.txt", "w") as out:
                     # Failure. mv to failed
-                    metadata['status'] = STATUS_FAILED
-                    self._object_store.move_object(processing_file, error_file, metadata)
+                    metadata["status"] = STATUS_FAILED
+                    self._object_store.move_object(
+                        processing_file, error_file, metadata
+                    )
 
-                    self.logger.warning(f'file processing failed, moving to error location {error_file.path}')
-                    await local_database.update_status_and_fileName(uuid, STATUS_FAILED, error_file.path)
-                    self._message_producer.job_evt_status(job_id, 'failure')
+                    self.logger.warning(
+                        "file processing failed, moving to error location %s",
+                        error_file.path,
+                    )
+                    await local_database.update_status_and_fileName(
+                        uuid, STATUS_FAILED, error_file.path
+                    )
+                    self._message_producer.job_evt_status(job_id, "failure")
 
                     # Optionally save error log to failed, use same metadata as original file
                     if processor.save_error_log:
                         self._object_store.upload_object(
-                            dest=error_log_file, src_file=base_path / 'out.txt', metadata=metadata
+                            dest=error_log_file,
+                            src_file=base_path / "out.txt",
+                            metadata=metadata,
                         )
         else:
             # Success, Canceled, or something unexpected. move to archive
             destination = canceled_file if status == STATUS_CANCELED else archive_file
             if destination:
-                metadata['status'] = status
+                metadata["status"] = status
                 self._object_store.move_object(processing_file, destination, metadata)
 
-                await local_database.update_status_and_fileName(uuid, status, destination.path)
-                self.logger.info(f'file processing {status}, moving to {destination.path}')
+                await local_database.update_status_and_fileName(
+                    uuid, status, destination.path
+                )
+                self.logger.info(
+                    f"file processing %s, moving to %s", status, destination.path
+                )
 
-            kafka_status = 'success' if status == STATUS_SUCCESS else 'canceled' if status == STATUS_CANCELED \
+            kafka_status = (
+                "success"
+                if status == STATUS_SUCCESS
+                else "canceled"
+                if status == STATUS_CANCELED
                 else status
+            )
             self._message_producer.job_evt_status(job_id, kafka_status)
 
         # Success or not, we handled this
-        self.logger.info(f'finished processing {object_id}')
+        self.logger.info("finished processing %s", object_id)
 
     async def _event_loop(self):
         local_database = ClickHouseDatabase()
@@ -225,7 +300,7 @@ class GeneralEventProcessor:
             # make sure ray.wait gets ObjectRefs, not DictKeys
             unfinished = [object_ref for object_ref in self._pending_tasks.keys()]
             while unfinished:
-                self.logger.debug('Found unfinished tasks to wait for')
+                self.logger.debug("Found unfinished tasks to wait for")
                 finished, unfinished = ray.wait(unfinished, num_returns=1)
                 for task_reference in finished:
                     task_uuid = self._pending_tasks[task_reference]
@@ -233,17 +308,28 @@ class GeneralEventProcessor:
                     status = STATUS_FAILED
                     try:
                         results = await gather(task_reference)
-                        self.logger.debug(f'got results from awaited task reference: {results}')
+                        self.logger.debug(
+                            "got results from awaited task reference: %s", results
+                        )
                         success = results[0]
                         status = STATUS_SUCCESS if success else status
                     except (TaskCancelledError, WorkerCrashedError, RayTaskError) as e:
-                        self.logger.warning(f'Task with UUID {task_uuid} was canceled or worker crashed: {e}')
+                        self.logger.warning(
+                            "Task with UUID %s was canceled or worker crashed: %s",
+                            task_uuid,
+                            e,
+                        )
                         status = STATUS_CANCELED
                     except Exception as e:
-                        self.logger.error(f'Exception processing results for task with UUID {task_uuid}: {e}')
-                        self.logger.error(f'Exception was of type: {type(e).__name__}')
+                        self.logger.error(
+                            "Exception processing results for task with UUID %s: %s",
+                            task_uuid,
+                            e,
+                        )
                     finally:
-                        await self._file_put_followup(*task_params, status=status, local_database=local_database)
+                        await self._file_put_followup(
+                            *task_params, status=status, local_database=local_database
+                        )
                         del self._pending_tasks[task_reference]
                         del self._task_params[task_uuid]
                         self._task_manager.remove_task.remote(task_uuid)
@@ -256,10 +342,14 @@ class GeneralEventProcessor:
 
 @ray.remote
 def process_file(
-    object_id: ObjectId, job_id: str, config_object_id: ObjectId, processor: FileProcessorConfig, metadata: dict,
-    processing_file: ObjectId
+    object_id: ObjectId,
+    job_id: str,
+    config_object_id: ObjectId,
+    processor: FileProcessorConfig,
+    metadata: dict,
+    processing_file: ObjectId,
 ) -> bool:
-    """ Remote (non-actor) task for running the configured processing method for a file """
+    """Remote (non-actor) task for running the configured processing method for a file"""
     message_producer = KafkaMessageProducer()
     object_store = MinioObjectStore()
     logger = get_logger(__name__)
@@ -275,26 +365,33 @@ def process_file(
             run_method = load_python_processor(processor.python)
             method_kwargs = {}
             if processor.python.supports_pizza_tracker:
-                method_kwargs['pizza_tracker'] = pizza_tracker.pipe_file_name
-                method_kwargs['pizza_job_id'] = job_id
+                method_kwargs["pizza_tracker"] = pizza_tracker.pipe_file_name
+                method_kwargs["pizza_job_id"] = job_id
             if processor.python.supports_metadata:
-                method_kwargs['file_metadata'] = metadata
+                method_kwargs["file_metadata"] = metadata
 
             success = True
             try:
                 import asyncio
+
                 if asyncio.iscoroutinefunction(run_method):
-                    asyncio.run(run_method(*(str(local_data_file), ), **method_kwargs))
+                    asyncio.run(run_method(*(str(local_data_file),), **method_kwargs))
                 else:
-                    run_method(*(str(local_data_file), ), **method_kwargs)
+                    run_method(*(str(local_data_file),), **method_kwargs)
             except Exception as e:
-                logger.error(f"Error response from configured processor {processor.python}: {e}")
+                logger.error(
+                    f"Error response from configured processor {processor.python}: {e}"
+                )
                 success = False
 
             # [WS] check once here to avoid spamming logs
             if processor.python.supports_pizza_tracker:
-                logger.debug('processor supports pizza tracker, will start tracker process')
+                logger.debug(
+                    "processor supports pizza tracker, will start tracker process"
+                )
             else:
-                logger.warning(f'processor {config_object_id} does not support pizza tracker')
+                logger.warning(
+                    "processor %s does not support pizza tracker", config_object_id
+                )
 
     return success

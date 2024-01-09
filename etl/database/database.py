@@ -13,86 +13,107 @@ LOGGER = get_logger(__name__)
 
 
 class ClickHouseDatabase(DatabaseStore):
-
     def __init__(self):
         pass
 
     async def insert_file(self, filedata: FileObject):
-        """ Track a new file from Minio"""
-        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
-            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+        """Track a new file from Minio"""
+        if not settings.clickhouse_host or settings.clickhouse_host == "UNSET":
+            LOGGER.warning("Clickhouse not configured, file status not tracked ")
             return
 
         client: Client = None
 
         try:
-            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+            client = Client(
+                host=settings.clickhouse_host,
+                port=settings.clickhouse_port,
+                database="rubicon",
+            )
             sql = f'INSERT INTO cast_iron_file_status ({",".join(FileObject.__fields__.keys())}) VALUES'
             await client.execute(sql, [filedata.dict()])
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured inserting a record in file tracking table {exc}')
+            LOGGER.error(exc)
         finally:
             if client:
                 await client.disconnect()
 
     async def update_status_by_fileName(self, filename: str, new_status: str):
-        """ Update the file status/state """
-        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
-            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+        """Update the file status/state"""
+        if not settings.clickhouse_host or settings.clickhouse_host == "UNSET":
+            LOGGER.warning("Clickhouse not configured, file status not tracked ")
             return
 
         client: Client = None
 
         try:
-            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+            client = Client(
+                host=settings.clickhouse_host,
+                port=settings.clickhouse_port,
+                database="rubicon",
+            )
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
-            sql = f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', " \
-                  f" updated_dt = {dt_seconds_since_epoch} WHERE file_name = '{filename}'  "
+            sql = (
+                f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', "
+                f" updated_dt = {dt_seconds_since_epoch} WHERE file_name = '{filename}'  "
+            )
             await client.execute(sql)
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+            LOGGER.error(exc)
         finally:
             if client:
                 await client.disconnect()
 
-    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str):
-        """ Update the file status/state and the file name """
-        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
-            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+    async def update_status_and_fileName(
+        self, rowid: str, new_status: str, new_filename: str
+    ):
+        """Update the file status/state and the file name"""
+        if not settings.clickhouse_host or settings.clickhouse_host == "UNSET":
+            LOGGER.warning("Clickhouse not configured, file status not tracked ")
             return
 
         client: Client = None
         try:
-            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+            client = Client(
+                host=settings.clickhouse_host,
+                port=settings.clickhouse_port,
+                database="rubicon",
+            )
             dt_seconds_since_epoch = round(datetime.utcnow().timestamp())
-            sql = f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', " \
-                  f" file_name='{new_filename}', updated_dt = {dt_seconds_since_epoch} WHERE id = '{rowid}'  "
+            sql = (
+                f"ALTER TABLE cast_iron_file_status UPDATE status='{new_status}', "
+                f" file_name='{new_filename}', updated_dt = {dt_seconds_since_epoch} WHERE id = '{rowid}'  "
+            )
             await client.execute(sql)
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured updating a record in file tracking table {exc}')
+            LOGGER.error(exc)
         finally:
             if client:
                 await client.disconnect()
 
     async def delete_file(self, rowid: str) -> None:
-        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
-            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+        if not settings.clickhouse_host or settings.clickhouse_host == "UNSET":
+            LOGGER.warning("Clickhouse not configured, file status not tracked ")
             return
 
         client: Client = None
         try:
-            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+            client = Client(
+                host=settings.clickhouse_host,
+                port=settings.clickhouse_port,
+                database="rubicon",
+            )
             sql = f"ALTER TABLE cast_iron_file_status DELETE WHERE id = '{rowid}' "
             await client.execute(sql)
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured deleting a record {exc}')
+            LOGGER.error(exc)
         finally:
             if client:
                 await client.disconnect()
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
-        if not settings.clickhouse_host or settings.clickhouse_host == 'UNSET':
-            LOGGER.warning('Clickhouse not configured, file status not tracked ')
+        if not settings.clickhouse_host or settings.clickhouse_host == "UNSET":
+            LOGGER.warning("Clickhouse not configured, file status not tracked ")
             return
 
         sql = f"SELECT * FROM cast_iron_file_status WHERE 1 = 1 "
@@ -103,7 +124,11 @@ class ClickHouseDatabase(DatabaseStore):
             sql = f"{sql} AND status = '{status}' "
 
         try:
-            client = Client(host=settings.clickhouse_host, port=settings.clickhouse_port, database='rubicon')
+            client = Client(
+                host=settings.clickhouse_host,
+                port=settings.clickhouse_port,
+                database="rubicon",
+            )
 
             rep = await client.execute(sql, with_column_types=True)
 
@@ -119,47 +144,56 @@ class ClickHouseDatabase(DatabaseStore):
 
             return file_objs
         except Exception as exc:
-            LOGGER.error(f'unexpected error occured querying file tracking table {exc}')
+            LOGGER.error(exc)
         finally:
             if client:
                 await client.disconnect()
 
     def parse_notification(self, evt_data: Any) -> FileObject:
-        """ Parse a Minio notification to create a DB row """
-        bucket_name, file_name = evt_data['Key'].split('/', 1)
-        metadata = evt_data['Records'][0]['s3']['object'].get('userMetadata', {})
+        """Parse a Minio notification to create a DB row"""
+        bucket_name, file_name = evt_data["Key"].split("/", 1)
+        metadata = evt_data["Records"][0]["s3"]["object"].get("userMetadata", {})
 
-        classification_meta_obj_minio = json.loads(metadata['X-Amz-Meta-Classification']) \
-            if metadata.get('X-Amz-Meta-Classification', None) else {}
+        classification_meta_obj_minio = (
+            json.loads(metadata["X-Amz-Meta-Classification"])
+            if metadata.get("X-Amz-Meta-Classification", None)
+            else {}
+        )
 
         ob_evt = FileObject(
-            id=metadata.get('X-Amz-Meta-Id', None),
+            id=metadata.get("X-Amz-Meta-Id", None),
             bucket_name=bucket_name,
             file_name=file_name,
-            status=STATUS_QUEUED,  #everything starts out queued
-            original_filename=metadata.get('X-Amz-Meta-Originalfilename', None),
-            mission_id=metadata.get('X-Amz-Meta-Mission_id', None),
-            event_name=evt_data['EventName'],
-            source_ip=evt_data['Records'][0]['requestParameters']['sourceIPAddress'],
-            size=evt_data['Records'][0]['s3']['object']['size'],
-            etag=evt_data['Records'][0]['s3']['object']['eTag'],
-            content_type=evt_data['Records'][0]['s3']['object']['contentType'],
+            status=STATUS_QUEUED,  # everything starts out queued
+            original_filename=metadata.get("X-Amz-Meta-Originalfilename", None),
+            mission_id=metadata.get("X-Amz-Meta-Mission_id", None),
+            event_name=evt_data["EventName"],
+            source_ip=evt_data["Records"][0]["requestParameters"]["sourceIPAddress"],
+            size=evt_data["Records"][0]["s3"]["object"]["size"],
+            etag=evt_data["Records"][0]["s3"]["object"]["eTag"],
+            content_type=evt_data["Records"][0]["s3"]["object"]["contentType"],
             created_dt=datetime.now(),
             updated_dt=datetime.now(),
             metadata=json.dumps(metadata),
-            user_dn=metadata.get('X-Amz-Meta-Owner_dn', None),
+            user_dn=metadata.get("X-Amz-Meta-Owner_dn", None),
             classification=classification_meta_obj_minio.get(
-                'classification', settings.user_system_default_classification
+                "classification", settings.user_system_default_classification
             ),
-            owner_producer=classification_meta_obj_minio.get('owner_producer', None),
-            sci_controls=classification_meta_obj_minio.get('sci_controls', []),
-            sar_identifier=classification_meta_obj_minio.get('sar_identifier', []),
-            atomic_energy_control=classification_meta_obj_minio.get('atomic_energy_control', None),
-            dissemination_controls=classification_meta_obj_minio.get('dissemination_controls', []),
-            fgi_source_open=classification_meta_obj_minio.get('fgi_source_open', None),
-            fgi_source_protected=classification_meta_obj_minio.get('fgi_source_protected', None),
-            releasable_to=classification_meta_obj_minio.get('releasable_to', []),
-            non_ic_markings=classification_meta_obj_minio.get('non_ic_markings', [])
+            owner_producer=classification_meta_obj_minio.get("owner_producer", None),
+            sci_controls=classification_meta_obj_minio.get("sci_controls", []),
+            sar_identifier=classification_meta_obj_minio.get("sar_identifier", []),
+            atomic_energy_control=classification_meta_obj_minio.get(
+                "atomic_energy_control", None
+            ),
+            dissemination_controls=classification_meta_obj_minio.get(
+                "dissemination_controls", []
+            ),
+            fgi_source_open=classification_meta_obj_minio.get("fgi_source_open", None),
+            fgi_source_protected=classification_meta_obj_minio.get(
+                "fgi_source_protected", None
+            ),
+            releasable_to=classification_meta_obj_minio.get("releasable_to", []),
+            non_ic_markings=classification_meta_obj_minio.get("non_ic_markings", []),
         )
 
         return ob_evt

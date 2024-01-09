@@ -1,14 +1,11 @@
 """Helper functions for ObjectIds and paths"""
 import logging
 import re
-from http import HTTPStatus
 from pathlib import PurePosixPath
 from typing import Optional
 
 from etl.file_processor_config import FileProcessorConfig
-from etl.object_store.interfaces import ObjectStore
 from etl.object_store.object_id import ObjectId
-from etl.util import RestClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +20,11 @@ def _compute_config_path(config_object_id: ObjectId, *args) -> ObjectId:
     return ObjectId(config_object_id.namespace, path)
 
 
-def get_inbox_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None) -> ObjectId:
+def get_inbox_path(
+    config_object_id: ObjectId,
+    cfg: FileProcessorConfig,
+    file_object_id: ObjectId = None,
+) -> ObjectId:
     """Gets an ObjectId of the inbox directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
     :param cfg: The deserialized processor config
@@ -31,12 +32,15 @@ def get_inbox_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_ob
     """
     return (
         _compute_config_path(config_object_id, cfg.inbox_dir, filename(file_object_id))
-        if file_object_id is not None else _compute_config_path(config_object_id, cfg.inbox_dir)
+        if file_object_id is not None
+        else _compute_config_path(config_object_id, cfg.inbox_dir)
     )
 
 
 def get_processing_path(
-    config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None
+    config_object_id: ObjectId,
+    cfg: FileProcessorConfig,
+    file_object_id: ObjectId = None,
 ) -> ObjectId:
     """Gets an ObjectId of the processing directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
@@ -44,14 +48,19 @@ def get_processing_path(
     :param file_object_id: An optional object to locate in the directory
     """
     return (
-        _compute_config_path(config_object_id, cfg.processing_dir, filename(file_object_id))
-        if file_object_id is not None else _compute_config_path(config_object_id, cfg.processing_dir)
+        _compute_config_path(
+            config_object_id, cfg.processing_dir, filename(file_object_id)
+        )
+        if file_object_id is not None
+        else _compute_config_path(config_object_id, cfg.processing_dir)
     )
 
 
-def get_archive_path(config_object_id: ObjectId,
-                     cfg: FileProcessorConfig,
-                     file_object_id: ObjectId = None) -> Optional[ObjectId]:
+def get_archive_path(
+    config_object_id: ObjectId,
+    cfg: FileProcessorConfig,
+    file_object_id: ObjectId = None,
+) -> Optional[ObjectId]:
     """Gets an ObjectId of the archive directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
     :param cfg: The deserialized processor config
@@ -60,13 +69,20 @@ def get_archive_path(config_object_id: ObjectId,
     """
     if cfg.archive_dir:
         return (
-            _compute_config_path(config_object_id, cfg.archive_dir, filename(file_object_id))
-            if file_object_id is not None else _compute_config_path(config_object_id, cfg.archive_dir)
+            _compute_config_path(
+                config_object_id, cfg.archive_dir, filename(file_object_id)
+            )
+            if file_object_id is not None
+            else _compute_config_path(config_object_id, cfg.archive_dir)
         )
     return None
 
 
-def get_error_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None) -> ObjectId:
+def get_error_path(
+    config_object_id: ObjectId,
+    cfg: FileProcessorConfig,
+    file_object_id: ObjectId = None,
+) -> ObjectId:
     """Gets an ObjectId of the error directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
     :param cfg: The deserialized processor config
@@ -74,12 +90,15 @@ def get_error_path(config_object_id: ObjectId, cfg: FileProcessorConfig, file_ob
     """
     return (
         _compute_config_path(config_object_id, cfg.error_dir, filename(file_object_id))
-        if file_object_id is not None else _compute_config_path(config_object_id, cfg.error_dir)
+        if file_object_id is not None
+        else _compute_config_path(config_object_id, cfg.error_dir)
     )
 
 
 def get_canceled_path(
-    config_object_id: ObjectId, cfg: FileProcessorConfig, file_object_id: ObjectId = None
+    config_object_id: ObjectId,
+    cfg: FileProcessorConfig,
+    file_object_id: ObjectId = None,
 ) -> ObjectId:
     """Gets an ObjectId of the canceled directory for a given config or an object below it
     :param config_object_id: The ObjectId of the processor config file
@@ -87,8 +106,11 @@ def get_canceled_path(
     :param file_object_id: An optional object to locate in the directory
     """
     return (
-        _compute_config_path(config_object_id, cfg.canceled_dir, filename(file_object_id))
-        if file_object_id is not None else _compute_config_path(config_object_id, cfg.canceled_dir)
+        _compute_config_path(
+            config_object_id, cfg.canceled_dir, filename(file_object_id)
+        )
+        if file_object_id is not None
+        else _compute_config_path(config_object_id, cfg.canceled_dir)
     )
 
 
@@ -106,13 +128,17 @@ def parent(object_id: ObjectId) -> ObjectId:
     return ObjectId(object_id.namespace, str(PurePosixPath(object_id.path).parent))
 
 
-def glob_matches(object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig) -> bool:
+def glob_matches(
+    object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig
+) -> bool:
     """Checks if the configured glob pattern matches the object path relative to the config directory"""
     if object_id.namespace != config_object_id.namespace:
         return False
 
     try:
-        file_path = str(PurePosixPath(object_id.path).relative_to(parent(config_object_id).path))
+        file_path = str(
+            PurePosixPath(object_id.path).relative_to(parent(config_object_id).path)
+        )
         globs = cfg.handled_file_glob.replace(" ", "")
         regex = re.compile(f".*({globs})$")
         result = bool(regex.match(file_path))
@@ -124,6 +150,7 @@ def glob_matches(object_id: ObjectId, config_object_id: ObjectId, cfg: FileProce
     except ValueError as value_error:
         LOGGER.error("Value error during glob matching: %s", value_error)
         return False
+
 
 def processor_matches(
     object_id: ObjectId, config_object_id: ObjectId, cfg: FileProcessorConfig

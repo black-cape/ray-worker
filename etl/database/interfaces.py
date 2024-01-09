@@ -1,15 +1,15 @@
 import abc
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from etl.config import settings
 from pydantic import BaseModel, Field
 
 # status that the files go through
-STATUS_QUEUED = 'Queued'
-STATUS_PROCESSING = 'Processing'
-STATUS_SUCCESS = 'Complete'
-STATUS_FAILED = 'Failed'
-STATUS_CANCELED = 'Canceled'
+STATUS_QUEUED = "Queued"
+STATUS_PROCESSING = "Processing"
+STATUS_SUCCESS = "Complete"
+STATUS_FAILED = "Failed"
+STATUS_CANCELED = "Canceled"
 
 
 class FileObject(BaseModel):
@@ -46,31 +46,29 @@ class DatabaseStore(abc.ABC):
     """Interface for message producer backend"""
 
     async def insert_file(self, filedata: FileObject) -> None:
-        """Insert a file record
-        :param file: Dict containing record
-        """
         raise NotImplementedError
 
     async def update_status_by_fileName(self, filename: str, new_status: str) -> None:
         # Update a file record status by filename
         raise NotImplementedError
 
-    async def update_status_and_fileName(self, rowid: str, new_status: str, new_filename: str) -> None:
+    async def update_status_and_fileName(
+        self, rowid: str, new_status: str, new_filename: str
+    ) -> None:
         # Update a file record status and file name
         raise NotImplementedError
 
     async def delete_file(self, rowid: str) -> None:
         """Delete a record
-        :param id: The data base id
+        :param rowid: The data base id
         """
         raise NotImplementedError
 
     async def query(self, status: Optional[str] = None) -> List[FileObject]:
-        """Retrieve records based on query params
-        """
+        """Retrieve records based on query params"""
         raise NotImplementedError
 
-    def parse_notification(self, evt_data: Any) -> Dict:
+    def parse_notification(self, evt_data: Any) -> dict:
         """Parse the event into a DB row/dict
         :param evt_data: The event data from S3/Minio
         """
