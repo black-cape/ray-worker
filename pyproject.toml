@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ray-worker"
-version = "3.0.0"
+version = "4.0.0"
 description = ""
 authors = ["Ken <ken@blackcape.io>"]
 
