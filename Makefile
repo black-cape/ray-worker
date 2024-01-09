@@ -14,10 +14,10 @@ install: ## Install project dependencies
 
 build: ## build the docker image
 	@echo "Running $@"
-	docker build -t cast-iron/ray-worker .
+	docker compose --env-file=project.env build --force-rm --pull
 
 info: ## show where all the services are
-	@echo "Minio available at http://localhost:${MINIO_PORT}"
+	@echo "Minio available at http://localhost:${MINIO_HTTP_PORT}"
 
 up: ## Run the service and its docker dependencies, using a cached build if available
 	@echo "Running $@"

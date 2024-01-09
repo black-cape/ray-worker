@@ -73,7 +73,7 @@ coming soon
 ### Example workflow
 
 With the docker containers running and the worker running in either a container or locally
-1. Navigate to MinIO `http://localhost:9000`, login using user: castiron, pass: castiron
+1. Navigate to MinIO `http://localhost:9001`, login using cred as configured in project.env
 2. Add `etl/example/example_config.toml` to the `etl` bucket
 3. Refresh the page to verify that additional etl buckets are created
 ![img.png](img.png)

@@ -5,7 +5,7 @@ set -e
 echo "Checking Kafka Status"
 
 until timeout 2s curl -v telnet://$KAFKA_BOOTSTRAP_SERVER 2>&1 | grep "Connected to"; do
-  >&2 echo "Kafka and Zookeeper are unavailable - sleeping"
+  >&2 echo "Kafka is unavailable - sleeping"
   sleep 1
 done
 
@@ -22,6 +22,7 @@ done
 
 ray start --head --port $RAY_HEAD_PORT \
     --node-manager-port $RAY_NODE_MANAGER_PORT --object-manager-port $RAY_OBJECT_MANAGER_PORT \
-    --min-worker-port $RAY_MIN_WORKER_PORT --max-worker-port $RAY_MAX_WORKER_PORT
+    --min-worker-port $RAY_MIN_WORKER_PORT --max-worker-port $RAY_MAX_WORKER_PORT \
+    --disable-usage-stats --include-dashboard false
 
 uvicorn --host 0.0.0.0 --port 8002 etl.app_manager:app

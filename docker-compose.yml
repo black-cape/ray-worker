@@ -5,13 +5,17 @@ services:
   # Message Queues
   kafka:
     image: bitnami/kafka:3.4.1
+    env_file:
+      - project.env
 
   # Object Storage
   minio:
     image: minio/minio:RELEASE.2023-10-07T15-07-38Z
-    entrypoint: /usr/bin/docker-entrypoint.sh server /data --console-address :9001
+    entrypoint: /usr/bin/docker-entrypoint.sh server /data --console-address :${MINIO_HTTP_PORT}
     ports:
-      - ${MINIO_PORT}:${MINIO_PORT}
+      - ${MINIO_HTTP_PORT}:${MINIO_HTTP_PORT}
+    env_file:
+      - project.env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -25,19 +29,9 @@ services:
     build:
       context: .
     container_name: ray-cast-iron-worker
-    environment:
-      CONSUMER_GRP_ETL_CONFIG: etl_config_consumer_grp1
-      MINIO_HOST: minio
-      MINIO_PORT: 9000
-      MINIO_ROOT_USER: castiron
-      MINIO_ROOT_PASSWORD: castiron
-      KAFKA_BROKER: kafka:9092
-      RAY_HEAD_PORT: 6379
-      RAY_HEAD_ADDRESS: 0.0.0.0:${RAY_HEAD_PORT}
-      RAY_NODE_MANAGER_PORT: 6380
-      RAY_OBJECT_MANAGER_PORT: 6381
-      RAY_MIN_WORKER_PORT: 10002
-      RAY_MAX_WORKER_PORT: 19999
+    env_file:
+      - project.env
+    shm_size: '6gb'
     volumes:
       - ./etl:/app/etl
     depends_on:
