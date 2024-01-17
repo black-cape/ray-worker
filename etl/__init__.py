@@ -1,3 +1,0 @@
-KAFKA_TOPIC_CASTIRON_TEXT_PAYLOAD='castiron_text_payload'
-KAFKA_TOPIC_CASTIRON_VIDEO_PAYLOAD='castiron_video_payload'
-KAFKA_BOOTSTRAP_SERVER='localhost:9093'

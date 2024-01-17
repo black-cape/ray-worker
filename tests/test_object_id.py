@@ -1,5 +1,5 @@
 # pylint: skip-file
-from etl.object_store.object_id import ObjectId
+from lib_ray_worker.object_store.object_id import ObjectId
 
 NAMESPACE = "test_namespace"
 
@@ -13,8 +13,8 @@ def test_ObjectId():
 
     assert obj in {obj: True}
 
-    assert not ObjectId('nope', 'nope') in {obj: True}
+    assert not ObjectId("nope", "nope") in {obj: True}
 
     assert obj == ObjectId(NAMESPACE, PATH)
-    assert obj != ObjectId(NAMESPACE, 'nope')
-    assert obj != ObjectId('nope', PATH)
+    assert obj != ObjectId(NAMESPACE, "nope")
+    assert obj != ObjectId("nope", PATH)

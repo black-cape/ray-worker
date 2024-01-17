@@ -1,12 +1,12 @@
 # pylint: skip-file
 import os
 
-from etl.file_processor_config import PythonProcessorConfig, try_loads
+from lib_ray_worker.file_processor_config import PythonProcessorConfig, try_loads
 
 
 def test_try_loads():
-    path = os.path.join(os.path.dirname(__file__), 'test_config.toml')
-    with open(path, 'r') as f:
+    path = os.path.join(os.path.dirname(__file__), "test_config.toml")
+    with open(path, "r") as f:
         data = f.read()
     actual = try_loads(data)
     assert True == actual.enabled
@@ -21,7 +21,7 @@ def test_try_loads():
 
     caught_value_error = False
     try:
-        try_loads('')
+        try_loads("")
     except ValueError:
         caught_value_error = True
         pass
@@ -29,8 +29,8 @@ def test_try_loads():
 
 
 def test_python_try_loads():
-    path = os.path.join(os.path.dirname(__file__), 'test_python_config.toml')
-    with open(path, 'r') as f:
+    path = os.path.join(os.path.dirname(__file__), "test_python_config.toml")
+    with open(path, "r") as f:
         data = f.read()
     actual = try_loads(data)
     assert True == actual.enabled
@@ -41,11 +41,13 @@ def test_python_try_loads():
     assert "04_failed" == actual.error_dir
     assert "05_canceled" == actual.canceled_dir
     assert actual.shell is None
-    assert actual.python is not None and isinstance(actual.python, PythonProcessorConfig)
+    assert actual.python is not None and isinstance(
+        actual.python, PythonProcessorConfig
+    )
 
     caught_value_error = False
     try:
-        try_loads('')
+        try_loads("")
     except ValueError:
         caught_value_error = True
         pass

@@ -33,7 +33,7 @@ services:
       - project.env
     shm_size: '6gb'
     volumes:
-      - ./etl:/app/etl
+      - ./lib_ray_worker:/usr/src/app/lib_ray_worker
     depends_on:
       minio:
         condition: service_healthy
