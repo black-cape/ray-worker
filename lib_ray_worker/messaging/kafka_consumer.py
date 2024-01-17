@@ -10,7 +10,6 @@ from lib_ray_worker.task_manager import TaskManager
 from lib_ray_worker.toml_processor import TOMLProcessor
 from lib_ray_worker.util import get_logger
 from lib_ray_worker.messaging.s3_bucket_workflow_worker import S3BucketWorkFlowWorker
-from lib_ray_worker.messaging.streaming_payload_worker import StreamingPayloadWorker
 
 LOGGER = get_logger(__name__)
 
@@ -70,24 +69,6 @@ class ConsumerWorkerManager:
                 # value through here as False once (prompting a check) and then True for the rest (no check).
                 worker_actor.run.remote(initial_check_complete)
                 initial_check_complete = True
-                self.consumer_worker_container.append(worker_actor)
-
-            LOGGER.info("Start Text Payload Streaming Workers...")
-            for _ in itertools.repeat(None, settings.num_text_streaming_workers):
-                worker_actor: ActorHandle = StreamingPayloadWorker.remote(
-                    settings.consumer_grp_streaming_text_payload,
-                    settings.kafka_topic_castiron_text_payload,
-                )
-                worker_actor.run.remote()
-                self.consumer_worker_container.append(worker_actor)
-
-            LOGGER.info("Start Video Payload Streaming Workers...")
-            for _ in itertools.repeat(None, settings.num_video_streaming_workers):
-                worker_actor: ActorHandle = StreamingPayloadWorker.remote(
-                    settings.consumer_grp_streaming_video_payload,
-                    settings.kafka_topic_castiron_video_payload,
-                )
-                worker_actor.run.remote()
                 self.consumer_worker_container.append(worker_actor)
 
         if not started_flag:

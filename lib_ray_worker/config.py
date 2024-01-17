@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     clickhouse_port: int = -1
 
     # Kafka configs
-    kafka_broker: str = "UNSET"
+    kafka_bootstrap_server: str = "UNSET"
 
     kafka_topic_castiron_etl_source_file: str = "castiron_etl_source_file"
     kafka_topic_castiron_text_payload: str = "castiron_text_payload"
@@ -45,8 +45,6 @@ class Settings(BaseSettings):
     # [WS] Cast Iron will create (num_s3_workflow_workers * 2) + 2 actors + num_text_streaming_workers text
     # streaming worker, plus schedule remote tasks up to the CPU limit
     num_s3_workflow_workers: int = 5
-    num_text_streaming_workers: int = 1
-    num_video_streaming_workers: int = 1
 
     max_restarts: int = 2
     max_retries: int = 2

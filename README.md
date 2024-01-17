@@ -37,37 +37,6 @@ Run
 Run
 `make clean`
 
-## Streaming Text Payload Workflow
-
-Ray Cast Iron Worker listens for message send to the topic named `castiron_text_payload` in the following format
-
-``` {'worker_run_method': worker_run_method, 'data': data, 'arg1': 'test', 'arg2': 'test2'}```
-
-data string will be executed against the Python method specified.  Any other field value pairs in the messsage payload
-are submitted into the same method as keyed arguments
-
-To see this, run the following
-
-``` poetry run python etl/example/streaming_text_producer.py```
-
-Observe the logs for Ray Cast Iron Worker
-```docker logs -f ray-cast-iron-worker```
-
-You should see something to the effect of
-```commandline
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) INFO:etl.messaging.streaming_txt_payload_worker:invoking etl.example.example_text_stream_processor.process with arg_list {'arg1': 'test', 'arg2': 'test2'}
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) INFO:etl.messaging.streaming_txt_payload_worker:invoking etl.example.example_text_stream_processor.process with arg_list {'arg1': 'test', 'arg2': 'test2'}
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text stream processor got data {"field1": 1, "field2": 2}
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) in example text stream processor got data {"field1": 1, "field2": 2}
-ray-cast-iron-worker  | (StreamingTextPayloadWorker pid=241) got arg1 test and arg2 test2
-```
-
-## Streaming Video Workflow
-
-coming soon
-
 ## S3 Compliant Object Store Backed File Workflow
 
 ### Example workflow
