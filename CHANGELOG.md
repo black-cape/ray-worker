@@ -2,6 +2,8 @@
 
 ### 5.0.0
 - replace Clickhouse with Postgres as file status tracking database
+- Removed FASTAPI which only existed to init Ray via FastAPI lifecycle method, and opt for a single main Thread
+
 
 ### 4.0.0
 - Update to Pydantic 2

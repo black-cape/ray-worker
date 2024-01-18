@@ -15,12 +15,7 @@ class Settings(BaseSettings):
     kafka_bootstrap_server: str = "UNSET"
 
     kafka_topic_castiron_etl_source_file: str = "castiron_etl_source_file"
-    kafka_topic_castiron_text_payload: str = "castiron_text_payload"
-    kafka_topic_castiron_video_payload: str = "castiron_video_payload"
-
     consumer_grp_etl_source_file: str = "etl-source-file-grp"
-    consumer_grp_streaming_text_payload: str = "streaming-text-playload-grp"
-    consumer_grp_streaming_video_payload: str = "streaming-video-playload-grp"
 
     kafka_enable_auto_commit: bool = True
     kafka_max_poll_records: int = 50
