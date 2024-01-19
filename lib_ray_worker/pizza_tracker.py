@@ -5,7 +5,7 @@ import os
 from io import BufferedReader, FileIO, TextIOWrapper
 
 from lib_ray_worker.messaging.interfaces import MessageProducer
-from lib_ray_worker.util import get_logger
+from lib_ray_worker.utils import get_logger
 
 logger = get_logger(__name__)
 

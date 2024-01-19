@@ -2,8 +2,8 @@ import psutil
 import ray
 
 from lib_ray_worker.messaging.kafka_consumer import consumer_worker_manager
-from lib_ray_worker.util import get_logger
-from lib_ray_worker.config import settings
+from lib_ray_worker.utils import get_logger
+from lib_ray_worker.config import adapters
 
 LOGGER = get_logger(__name__)
 
@@ -12,10 +12,10 @@ def main():
     ray._private.utils.get_system_memory = lambda: psutil.virtual_memory().total
 
     if not ray.is_initialized:
-        if settings.LOCAL_MODE == "Y":
+        if adapters.LOCAL_MODE == "Y":
             ray.init()
         else:
-            ray.init(address=settings.RAY_HEAD_ADDRESS)
+            ray.init(address=adapters.RAY_HEAD_ADDRESS)
 
     LOGGER.info(
         """This cluster consists of

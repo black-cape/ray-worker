@@ -10,24 +10,28 @@ from uuid import uuid4
 import ray
 from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
 
-from lib_ray_worker.database.database import ClickHouseDatabase
-from lib_ray_worker.database.interfaces import (
-    FileObject,
+from lib_ray_worker.adapters.post_gres_wrapper import PostGresWrapper
+from lib_ray_worker.file_processor_config import (
+    FileProcessorConfig,
+    load_python_processor,
+)
+from lib_ray_worker.messaging.kafka_producer import KafkaMessageProducer
+from lib_ray_worker.models.file_status_record import FileStatusRecord
+from lib_ray_worker.object_store.interfaces import EventType
+from lib_ray_worker.object_store.minio import MinioObjectStore
+from lib_ray_worker.object_store.object_id import ObjectId
+from lib_ray_worker.pizza_tracker import PizzaTracker
+from lib_ray_worker.task_manager import TaskManager
+from lib_ray_worker.toml_processor import TOMLProcessor
+from lib_ray_worker.utils import short_uuid, get_logger
+from lib_ray_worker.utils.constants import (
     STATUS_CANCELED,
     STATUS_FAILED,
     STATUS_PROCESSING,
     STATUS_QUEUED,
     STATUS_SUCCESS,
 )
-from lib_ray_worker.file_processor_config import (
-    FileProcessorConfig,
-    load_python_processor,
-)
-from lib_ray_worker.messaging.kafka_producer import KafkaMessageProducer
-from lib_ray_worker.object_store.interfaces import EventType
-from lib_ray_worker.object_store.minio import MinioObjectStore
-from lib_ray_worker.object_store.object_id import ObjectId
-from lib_ray_worker.path_helpers import (
+from lib_ray_worker.utils.path_helpers import (
     filename,
     get_archive_path,
     get_canceled_path,
@@ -38,10 +42,6 @@ from lib_ray_worker.path_helpers import (
     processor_matches,
     rename,
 )
-from lib_ray_worker.pizza_tracker import PizzaTracker
-from lib_ray_worker.task_manager import TaskManager
-from lib_ray_worker.toml_processor import TOMLProcessor
-from lib_ray_worker.util import short_uuid, get_logger
 
 ERROR_LOG_SUFFIX = "_error_log_.txt"
 file_suffix_to_ignore = [".toml", ".keep", ERROR_LOG_SUFFIX]
@@ -55,7 +55,7 @@ class GeneralEventProcessor:
         self._message_producer = KafkaMessageProducer()
         self._object_store = MinioObjectStore()
         self._toml_processor = toml_processor
-        self._database = ClickHouseDatabase()
+        self._postgresWrapper = PostGresWrapper()
         self._task_params = {}
         self._task_manager = task_manager
         self._pending_tasks = {}
@@ -69,7 +69,7 @@ class GeneralEventProcessor:
         event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
-        if stuck_files := await self._database.query(status=status):
+        if stuck_files := await self._postgresWrapper.query(status=status):
             self.logger.debug("Number of %s files: %s", status, len(stuck_files))
 
             for stuck_file in stuck_files:
@@ -79,7 +79,7 @@ class GeneralEventProcessor:
                 src_object_id = ObjectId(stuck_file.bucket_name, stuck_file.file_name)
                 dest_object_id = ObjectId(stuck_file.bucket_name, new_path)
 
-                metadata = json.loads(stuck_file.metadata)
+                metadata = json.loads(stuck_file.minio_metadata)
                 metadata.pop("originalFilename", None)
                 metadata.pop("X-Amz-Meta-Originalfilename", None)
                 metadata.pop("X-Amz-Meta-Id", None)
@@ -94,7 +94,7 @@ class GeneralEventProcessor:
                     self._object_store.move_object(
                         src_object_id, dest_object_id, metadata
                     )
-                    await self._database.delete_file(rowid=stuck_file.id)
+                    await self._postgresWrapper.delete(id=stuck_file.id)
                 except Exception as e:
                     self.logger.error(
                         "Error restoring file. Possible database/Minio mismatch: %s", e
@@ -127,9 +127,11 @@ class GeneralEventProcessor:
                             "a file is renamed and placed back in Minio again at %s, renaming file",
                             obj_path,
                         )
-                        db_evt: FileObject = self._database.parse_notification(evt_data)
-                        await self._database.insert_file(db_evt)
-                        await self._file_put(evt.object_id, db_evt.id)
+                        file_status_record: FileStatusRecord = (
+                            self._postgresWrapper.parse_notification(evt_data)
+                        )
+                        await self._postgresWrapper.insert(file_status_record)
+                        await self._file_put(evt.object_id, file_status_record)
                 else:
                     self.logger.info(
                         "new file drop detected at %s, renaming file", obj_path
@@ -150,7 +152,9 @@ class GeneralEventProcessor:
                         evt.object_id, dest_object_id, metadata
                     )
 
-    async def _file_put(self, object_id: ObjectId, uuid: str):
+    async def _file_put(
+        self, object_id: ObjectId, file_status_record: FileStatusRecord
+    ):
         """
         Handle possible data file puts, look for matching toml processor to process it.
         """
@@ -174,7 +178,7 @@ class GeneralEventProcessor:
             )
 
             # Hypothetical file paths for each directory
-            processing_file = get_processing_path(
+            processing_file_path = get_processing_path(
                 config_object_id, processor, object_id
             )
 
@@ -186,28 +190,31 @@ class GeneralEventProcessor:
             # mv to processing
             metadata = self._object_store.retrieve_object_metadata(object_id)
             metadata["status"] = STATUS_PROCESSING
-            self._object_store.move_object(object_id, processing_file, metadata)
-            await self._database.update_status_and_fileName(
-                uuid, STATUS_PROCESSING, processing_file.path
-            )
+            self._object_store.move_object(object_id, processing_file_path, metadata)
+
+            file_status_record.status = STATUS_PROCESSING
+            file_status_record.file_name = processing_file_path.path
+            await self._postgresWrapper.update(file_status_record)
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
-                processing_file,
+                processing_file_path,
                 job_id,
                 config_object_id,
                 processor,
                 metadata,
-                processing_file,
+                processing_file_path,
             )
             # Update the Ray shared memory TaskManager with this task's uuid and reference
-            await self._task_manager.add_task.remote(uuid, [task_reference])
+            await self._task_manager.add_task.remote(
+                file_status_record.id, [task_reference]
+            )
             # Update our local task_reference->uuid lookup for tracking when it completes
-            self._pending_tasks[task_reference] = uuid
+            self._pending_tasks[task_reference] = file_status_record.id
             # Keep track of the other params for a task for use in _file_put_followup
-            self._task_params[uuid] = (
-                processing_file,
-                uuid,
+            self._task_params[file_status_record.id] = (
+                processing_file_path,
+                file_status_record.id,
                 job_id,
                 config_object_id,
                 processor,
@@ -224,7 +231,7 @@ class GeneralEventProcessor:
         processor: FileProcessorConfig,
         metadata: Dict,
         status: str,
-        local_database: ClickHouseDatabase,
+        postgres_wrapper: PostGresWrapper,
     ):
         """
         Handle followup steps after processing completes for a file.
@@ -259,8 +266,8 @@ class GeneralEventProcessor:
                         "file processing failed, moving to error location %s",
                         error_file.path,
                     )
-                    await local_database.update_status_and_fileName(
-                        uuid, STATUS_FAILED, error_file.path
+                    await postgres_wrapper.update(
+                        id=uuid, status=STATUS_FAILED, file_name=error_file.path
                     )
                     self._message_producer.job_evt_status(job_id, "failure")
 
@@ -278,8 +285,8 @@ class GeneralEventProcessor:
                 metadata["status"] = status
                 self._object_store.move_object(processing_file, destination, metadata)
 
-                await local_database.update_status_and_fileName(
-                    uuid, status, destination.path
+                await postgres_wrapper.update(
+                    id=uuid, status=status, file_name=destination.path
                 )
                 self.logger.info(
                     f"file processing %s, moving to %s", status, destination.path
@@ -298,7 +305,7 @@ class GeneralEventProcessor:
         self.logger.info("finished processing %s", object_id)
 
     async def _event_loop(self):
-        local_database = ClickHouseDatabase()
+        postgres_wrapper: PostGresWrapper = PostGresWrapper()
         while True:
             # make sure ray.wait gets ObjectRefs, not DictKeys
             unfinished = [object_ref for object_ref in self._pending_tasks.keys()]
@@ -331,7 +338,9 @@ class GeneralEventProcessor:
                         )
                     finally:
                         await self._file_put_followup(
-                            *task_params, status=status, local_database=local_database
+                            *task_params,
+                            status=status,
+                            postgres_wrapper=postgres_wrapper,
                         )
                         del self._pending_tasks[task_reference]
                         del self._task_params[task_uuid]

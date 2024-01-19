@@ -7,10 +7,10 @@ from minio import Minio
 from minio.commonconfig import REPLACE, CopySource
 from minio.notificationconfig import NotificationConfig, QueueConfig
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 from lib_ray_worker.object_store.interfaces import EventType, ObjectEvent, ObjectStore
 from lib_ray_worker.object_store.object_id import ObjectId
-from lib_ray_worker.util import get_logger
+from lib_ray_worker.utils import get_logger
 
 KEEP_FILENAME = ".keep"
 LOGGER = get_logger(__name__)
@@ -33,7 +33,7 @@ class MinioObjectResponse(Protocol):
 notification_configs = NotificationConfig(
     queue_config_list=[
         QueueConfig(
-            settings.minio_notification_arn_etl_source_file,
+            adapters.MINIO_NOTIFICATION_ARN_ETL_SOURCE_FILE,
             ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"],
             config_id="etl_file_upload_notification",
         ),
@@ -46,18 +46,18 @@ class MinioObjectStore(ObjectStore):
 
     def __init__(self):
         self._minio_client = Minio(
-            f"{settings.minio_host}:{settings.minio_port}",
-            access_key=settings.minio_root_user,
-            secret_key=settings.minio_root_password,
-            secure=settings.minio_secure,
+            f"{adapters.MINIO_HOST}:{adapters.MINIO_PORT}",
+            access_key=adapters.MINIO_ROOT_USER,
+            secret_key=adapters.MINIO_ROOT_PASSWORD,
+            secure=adapters.MINIO_SECURE,
         )
 
         # Create bucket notification
-        if not self._minio_client.bucket_exists(settings.minio_etl_bucket):
-            self._minio_client.make_bucket(settings.minio_etl_bucket)
+        if not self._minio_client.bucket_exists(adapters.MINIO_ETL_BUCKET):
+            self._minio_client.make_bucket(adapters.MINIO_ETL_BUCKET)
 
         self._minio_client.set_bucket_notification(
-            settings.minio_etl_bucket, notification_configs
+            adapters.MINIO_ETL_BUCKET, notification_configs
         )
 
     def download_object(self, src: ObjectId, dest_file: str) -> None:

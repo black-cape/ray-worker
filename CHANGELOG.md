@@ -1,9 +1,12 @@
 # Ray Worker
 
 ### 5.0.0
+- Simplified Ray bootstrap, previously this was tied to FastAPI life cycle, and the only reason FASTAPI was introduced as a dep
+- Removed domain specific data model fields and revert Ray Worker as more generic
+- Removed Python Deps no longer needed
 - replace Clickhouse with Postgres as file status tracking database
-- Removed FASTAPI which only existed to init Ray via FastAPI lifecycle method, and opt for a single main Thread
-
+- Alembic + Postgres migration supported
+- make repo publishable to a python package
 
 ### 4.0.0
 - Update to Pydantic 2

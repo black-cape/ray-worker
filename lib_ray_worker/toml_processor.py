@@ -1,22 +1,21 @@
 """Contains the implementation of the EventProcessor class"""
-import logging
 import re
 from typing import Dict, Optional
 
 import ray
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 from lib_ray_worker.file_processor_config import FileProcessorConfig, try_loads
 from lib_ray_worker.object_store.interfaces import EventType
 from lib_ray_worker.object_store.minio import MinioObjectStore
 from lib_ray_worker.object_store.object_id import ObjectId
-from lib_ray_worker.path_helpers import (
+from lib_ray_worker.utils import get_logger
+from lib_ray_worker.utils.path_helpers import (
     get_archive_path,
     get_error_path,
     get_inbox_path,
     get_processing_path,
 )
-from lib_ray_worker.util import get_logger
 
 ERROR_LOG_SUFFIX = "_error_log_.txt"
 file_suffix_to_ignore = [".toml", ".keep", ERROR_LOG_SUFFIX]
@@ -36,7 +35,7 @@ class TOMLProcessor:
 
         # Load existing config files
         for obj in self._object_store.list_objects(
-            settings.minio_etl_bucket, None, recursive=True
+            adapters.MINIO_ETL_BUCKET, None, recursive=True
         ):
             if obj.path.endswith(".toml"):
                 self._toml_put(obj)

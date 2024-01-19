@@ -1,7 +1,7 @@
 # pylint: skip-file
 from types import SimpleNamespace
 
-from lib_ray_worker import path_helpers
+from lib_ray_worker.utils import path_helpers
 from lib_ray_worker.object_store.object_id import ObjectId
 
 NAMESPACE = "test_namespace"

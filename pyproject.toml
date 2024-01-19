@@ -14,10 +14,14 @@ kafka-python = "<2.0.0"
 toml = "^0.10.2"
 minio = "^7.1.8"
 psutil = "^5.9.0"
-aioch = "^0.0.2"
 ray = "~2"
 pydantic = "~2"
 pydantic-settings = "~2"
+asyncpg = "=0.27.0"
+alembic = "=1.11.1"
+SQLAlchemy-Utils = "^0.41.1"
+SQLAlchemy = {extras = ["asyncio"], version = "^2.0.23"}
+sqlmodel = "^0.0.14"
 
 [tool.poetry.dev-dependencies]
 pylint = "^2.17.4"

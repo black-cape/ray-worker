@@ -4,7 +4,7 @@ from typing import Any
 
 from kafka import KafkaProducer
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 from lib_ray_worker.messaging.interfaces import MessageProducer
 
 
@@ -13,12 +13,12 @@ class KafkaMessageProducer(MessageProducer):
 
     def __init__(self):
         self._producer = KafkaProducer(
-            bootstrap_servers=[settings.kafka_bootstrap_server]
+            bootstrap_servers=[adapters.KAFKA_BOOTSTRAP_SERVER]
         )
 
     def _publish(self, data: Any):
         self._producer.send(
-            settings.kafka_pizza_tracker_topic, dumps(data, default=str).encode("utf-8")
+            adapters.KAFKA_PIZZA_TRACKER_TOPIC, dumps(data, default=str).encode("utf-8")
         )
         self._producer.flush()
 

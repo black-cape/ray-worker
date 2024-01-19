@@ -1,16 +1,15 @@
 import itertools
-import time
 from threading import Thread
 from typing import List
 
 import ray
 from ray.actor import ActorHandle
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 from lib_ray_worker.messaging.s3_bucket_workflow_worker import S3BucketWorkFlowWorker
 from lib_ray_worker.task_manager import TaskManager
 from lib_ray_worker.toml_processor import TOMLProcessor
-from lib_ray_worker.util import get_logger
+from lib_ray_worker.utils import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -51,7 +50,7 @@ class ConsumerWorkerManager(Thread):
         if len(self.consumer_worker_container) == 0:
             self.started_flag = True
             LOGGER.info("Start S3 Bucket Workflow Workers...")
-            for _ in itertools.repeat(None, settings.num_s3_workflow_workers):
+            for _ in itertools.repeat(None, adapters.NUM_S3_WORKFLOW_WORKERS):
                 worker_actor: ActorHandle = S3BucketWorkFlowWorker.remote(
                     self.toml_processor, self.task_manager
                 )

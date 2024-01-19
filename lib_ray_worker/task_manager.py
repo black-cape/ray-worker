@@ -1,8 +1,6 @@
 from typing import Dict, List
-
 import ray
-
-from lib_ray_worker.util import get_logger
+from lib_ray_worker.utils import get_logger
 
 
 @ray.remote

@@ -3,10 +3,10 @@ import base64
 import logging
 import uuid
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 
 # this has to be set once
-configured_logging_level = getattr(logging, settings.log_level.upper(), None)
+configured_logging_level = getattr(logging, adapters.LOG_LEVEL.upper(), None)
 logging.basicConfig(level=configured_logging_level)
 
 

@@ -6,15 +6,15 @@ import time
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
-from lib_ray_worker.config import settings
+from lib_ray_worker.config import adapters
 from lib_ray_worker.general_event_processor import GeneralEventProcessor
 from lib_ray_worker.task_manager import TaskManager
 from lib_ray_worker.toml_processor import TOMLProcessor
-from lib_ray_worker.util import get_logger
+from lib_ray_worker.utils import get_logger
 
 
 # unfortunately making a super class in Ray is not easy/supported https://github.com/ray-project/ray/issues/449
-@ray.remote(max_restarts=settings.max_restarts, max_task_retries=settings.max_retries)
+@ray.remote(max_restarts=adapters.MAX_RESTARTS, max_task_retries=adapters.MAX_RETRIES)
 class S3BucketWorkFlowWorker:
     def __init__(self, toml_processor: TOMLProcessor, task_manager: TaskManager):
         self.stop_worker = False
@@ -33,21 +33,21 @@ class S3BucketWorkFlowWorker:
         self.consumer_stop_delay_seconds = 2
         try:
             self.consumer = KafkaConsumer(
-                bootstrap_servers=settings.kafka_bootstrap_server,
+                bootstrap_servers=adapters.KAFKA_BOOTSTRAP_SERVER,
                 client_id=str(uuid.uuid4()),
-                group_id=settings.consumer_grp_etl_source_file,
+                group_id=adapters.CONSUMER_GRP_ETL_SOURCE_FILE,
                 key_deserializer=lambda k: k.decode("utf-8") if k is not None else k,
                 value_deserializer=lambda v: json.loads(v) if v is not None else v,
                 auto_offset_reset="earliest",
-                enable_auto_commit=settings.kafka_enable_auto_commit,
-                max_poll_records=settings.kafka_max_poll_records,
-                max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
+                enable_auto_commit=adapters.KAFKA_ENABLE_AUTO_COMMIT,
+                max_poll_records=adapters.KAFKA_MAX_POLL_RECORDS,
+                max_poll_interval_ms=adapters.KAFKA_MAX_POLL_INTERVAL_MS,
                 consumer_timeout_ms=30000,
             )
-            self.consumer.subscribe([settings.kafka_topic_castiron_etl_source_file])
+            self.consumer.subscribe([adapters.KAFKA_TOPIC_CASTIRON_ETL_SOURCE_FILE])
             self.logger.info(
                 "Started consumer worker for topic %s...",
-                settings.kafka_topic_castiron_etl_source_file,
+                adapters.KAFKA_TOPIC_CASTIRON_ETL_SOURCE_FILE,
             )
         except KafkaError as exc:
             self.logger.error(exc)
