@@ -1,15 +1,22 @@
 # Ray Cast-Iron Worker Example (ray-worker)
 
+Ray Worker is build on top of [Ray Core](https://ray-robert.readthedocs.io/en/latest/internals-overview.html), a distributed execution
+engine to offload compute intensive work as remote functions to remote worker process threads. The primary function of Ray Worker is
+to associate a TOML config to match a data file to a Python entry processing method, which itself is then executed as a Ray remote function
+on a cluster.
+
+Ray Worker also uses an Object Store to persist and stage files for processing, as well as a PostGres Database to track file status as it
+is being processed, in addition, high level file status and progress are also exposed via Kafka as optional integration point.
+
 ## Getting Started
 
 This Ray Cast-Iron Worker example leverages several Python libraries to accomplish distributed File workflow
 * [Ray](https://ray.io)
 * [Kafka](https://github.com/dpkp/kafka-python)
-* [Clickhouse](https://clickhouse.com/)
 * [Minio](https://docs.min.io/docs/python-client-api-reference.html)
 * [Pydantic](https://pydantic-docs.helpmanual.io/)
 * [Toml](https://github.com/uiri/toml)
-
+* [Postgres](https://www.postgresql.org/)
 
 ## Installing Dependencies
 

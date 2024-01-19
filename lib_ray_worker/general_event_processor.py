@@ -9,12 +9,8 @@ from uuid import uuid4
 
 import ray
 from ray.exceptions import RayTaskError, TaskCancelledError, WorkerCrashedError
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from lib_ray_worker.adapters.post_gres_wrapper import PostGresWrapper
-from lib_ray_worker.config import adapters
 from lib_ray_worker.file_processor_config import (
     FileProcessorConfig,
     load_python_processor,
@@ -50,8 +46,6 @@ from lib_ray_worker.utils.path_helpers import (
 ERROR_LOG_SUFFIX = "_error_log_.txt"
 file_suffix_to_ignore = [".toml", ".keep", ERROR_LOG_SUFFIX]
 
-engine = create_async_engine(adapters.DATABASE_URI, echo=True, pool_pre_ping=True)
-
 
 @ray.remote
 class GeneralEventProcessor:
@@ -75,7 +69,9 @@ class GeneralEventProcessor:
         event_loop.start()
 
     async def _restart_stuck_records(self, status: str) -> None:
-        if stuck_files := await self._postgresWrapper.query(status=status):
+        stuck_files = await self._postgresWrapper.query(status=status)
+
+        if stuck_files:
             self.logger.debug("Number of %s files: %s", status, len(stuck_files))
 
             for stuck_file in stuck_files:
@@ -100,7 +96,8 @@ class GeneralEventProcessor:
                     self._object_store.move_object(
                         src_object_id, dest_object_id, metadata
                     )
-                    await self._postgresWrapper.delete(id=stuck_file.id)
+
+                    await self._postgresWrapper.delete_by_id(id=stuck_file.id)
                 except Exception as e:
                     self.logger.error(
                         "Error restoring file. Possible database/Minio mismatch: %s", e
@@ -136,12 +133,10 @@ class GeneralEventProcessor:
                         file_status_record: FileStatusRecord = (
                             self._postgresWrapper.parse_notification(evt_data)
                         )
-                        with sessionmaker(
-                            engine, class_=AsyncSession, expire_on_commit=False
-                        ) as session:
-                            await self._postgresWrapper.insert(
-                                file_status_record=file_status_record, session=session
-                            )
+
+                        await self._postgresWrapper.insert(
+                            file_status_record=file_status_record
+                        )
                         await self._file_put(evt.object_id, file_status_record)
                 else:
                     self.logger.info(
@@ -205,13 +200,7 @@ class GeneralEventProcessor:
 
             file_status_record.status = STATUS_PROCESSING
             file_status_record.file_name = processing_file_path.path
-
-            with sessionmaker(
-                engine, class_=AsyncSession, expire_on_commit=False
-            ) as session:
-                await self._postgresWrapper.update(
-                    file_status_record=file_status_record, session=session
-                )
+            await self._postgresWrapper.update(file_status_record=file_status_record)
 
             # kick off processing and then return after first match
             task_reference = process_file.remote(
@@ -283,15 +272,10 @@ class GeneralEventProcessor:
                         "file processing failed, moving to error location %s",
                         error_file.path,
                     )
-                    with sessionmaker(
-                        engine, class_=AsyncSession, expire_on_commit=False
-                    ) as session:
-                        await postgres_wrapper.update_by_id(
-                            id=uuid,
-                            status=STATUS_FAILED,
-                            file_name=error_file.path,
-                            session=session,
-                        )
+
+                    await postgres_wrapper.update_by_id(
+                        id=uuid, status=STATUS_FAILED, file_name=error_file.path
+                    )
 
                     self._message_producer.job_evt_status(job_id, "failure")
 
@@ -309,15 +293,9 @@ class GeneralEventProcessor:
                 metadata["status"] = status
                 self._object_store.move_object(processing_file, destination, metadata)
 
-                with sessionmaker(
-                    engine, class_=AsyncSession, expire_on_commit=False
-                ) as session:
-                    await postgres_wrapper.update_by_id(
-                        id=uuid,
-                        status=status,
-                        file_name=destination.path,
-                        session=session,
-                    )
+                await postgres_wrapper.update_by_id(
+                    id=uuid, status=status, file_name=destination.path
+                )
 
                 self.logger.info(
                     f"file processing %s, moving to %s", status, destination.path

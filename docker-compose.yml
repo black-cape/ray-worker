@@ -42,6 +42,8 @@ services:
     shm_size: '6gb'
     volumes:
       - ./lib_ray_worker:/usr/src/app/lib_ray_worker
+      # only for local dev and only to support running and access to alembic migration file generation outside of container
+      - ./alembic:/usr/src/app/alembic
     depends_on:
       minio:
         condition: service_healthy

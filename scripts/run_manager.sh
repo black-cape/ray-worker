@@ -25,4 +25,4 @@ ray start --head --port $RAY_HEAD_PORT \
     --min-worker-port $RAY_MIN_WORKER_PORT --max-worker-port $RAY_MAX_WORKER_PORT \
     --disable-usage-stats --include-dashboard false
 
-poetry run python lib_ray_worker/entrypoint.py
+alembic upgrade head && poetry run python lib_ray_worker/entrypoint.py
