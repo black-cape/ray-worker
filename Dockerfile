@@ -26,4 +26,8 @@ RUN poetry install --no-root --no-dev
 COPY ./lib_ray_worker lib_ray_worker
 COPY ./scripts scripts
 
+# Copy Alembic Postgres migration
+COPY alembic ./alembic
+COPY alembic.ini .
+
 CMD ["scripts/run_manager.sh"]

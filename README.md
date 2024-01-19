@@ -37,6 +37,12 @@ Run
 Run
 `make clean`
 
+## Other avaiable commands
+
+Run
+`make`
+to view commands available for this project
+
 ## S3 Compliant Object Store Backed File Workflow
 
 ### Example workflow

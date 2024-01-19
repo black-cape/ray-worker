@@ -8,11 +8,11 @@ services:
     env_file:
       - project.env
 
+  # DB to track status
   postgres:
     image: postgres:15.3
-    profiles: ['run', 'test']
-    labels:
-      - 'traefik.enable=false'
+    env_file:
+      - project.env
     volumes:
       - db_ray-worker:/var/lib/postgresql/data
       - db_logs_ray-worker:/var/log
@@ -37,7 +37,6 @@ services:
   ray_cast_iron_worker:
     build:
       context: .
-    container_name: ray-cast-iron-worker
     env_file:
       - project.env
     shm_size: '6gb'
