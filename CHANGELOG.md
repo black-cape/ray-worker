@@ -7,6 +7,8 @@
 - replace Clickhouse with Postgres as permanent storage to track File proessing status
 - Wired up Alembic to support Postgres migration supported
 - make repo publishable as a python package to ease integration
+- name spaced ENV variabled to be bound as configs
+- additional Make targets to support development, schema migration.. etc
 
 ### 4.0.0
 - Update to Pydantic 2

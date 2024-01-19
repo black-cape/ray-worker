@@ -38,25 +38,23 @@ class PostGresWrapper:
     async def get(self, id: str) -> Optional[FileStatusRecord]:
         LOGGER.info("get called %s", id)
         async with self.async_session() as session:
-            async with session.begin():
-                return await self._get_with_session(id=id, session=session)
+            return await self._get_with_session(id=id, session=session)
 
     async def insert(self, file_status_record: FileStatusRecord):
         LOGGER.info("insert called %s", file_status_record)
         async with self.async_session() as session:
-            async with session.begin():
-                await session.commit()
-                await session.refresh(file_status_record)
-                return file_status_record
+            session.add(file_status_record)
+            await session.commit()
+            await session.refresh(file_status_record)
+            return file_status_record
 
     async def update(self, file_status_record: FileStatusRecord):
         LOGGER.info("upsert called")
         async with self.async_session() as session:
-            async with session.begin():
-                session.add(file_status_record)
-                await session.commit()
-                await session.refresh(file_status_record)
-                return file_status_record
+            session.add(file_status_record)
+            await session.commit()
+            await session.refresh(file_status_record)
+            return file_status_record
 
     async def update_by_id(
         self,
@@ -66,25 +64,23 @@ class PostGresWrapper:
     ):
         LOGGER.info("upate by ID called")
         async with self.async_session() as session:
-            async with session.begin():
-                if file_status_record := await self._get_with_session(
-                    id=id, session=session
-                ):
-                    file_status_record.status = status
-                    file_status_record.file_name = file_name
-                    session.add(file_status_record)
-                    await session.commit()
-                    await session.refresh(file_status_record)
-                    return file_status_record
+            if file_status_record := await self._get_with_session(
+                id=id, session=session
+            ):
+                file_status_record.status = status
+                file_status_record.file_name = file_name
+                session.add(file_status_record)
+                await session.commit()
+                await session.refresh(file_status_record)
+                return file_status_record
 
     async def delete_by_id(self, id: str) -> None:
         LOGGER.info("purge record called")
         async with self.async_session() as session:
-            async with session.begin():
-                if file_status_record := await self._get_with_session(
-                    id=id, session=session
-                ):
-                    await session.delete(file_status_record)
+            if file_status_record := await self._get_with_session(
+                id=id, session=session
+            ):
+                await session.delete(file_status_record)
 
     async def query(self, status: Optional[str] = None) -> List[FileStatusRecord]:
         LOGGER.info("query called")
@@ -94,9 +90,8 @@ class PostGresWrapper:
 
         statement = statement.order_by(FileStatusRecord.created_dt.desc())
         async with self.async_session() as session:
-            async with session.begin():
-                result = await session.exec(statement=statement)
-                return result.all()
+            result = await session.exec(statement=statement)
+            return result.all()
 
     def parse_notification(self, evt_data: Any) -> FileStatusRecord:
         """Parse a Minio notification to create a DB row"""
