@@ -141,3 +141,4 @@ minio/data
 
 # Database Related
 databases/postgres/data/
+alembic/versions/!checkpoint.*.py

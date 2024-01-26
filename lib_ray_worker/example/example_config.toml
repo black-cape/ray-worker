@@ -1,0 +1,32 @@
+# An optional title describing this document
+title = "Example Processor"
+
+[castiron.etl]
+# Whether this processor should be activated
+enabled = true
+
+# A unix-like filename glob pattern indicating which filenames this handler will process
+handled_file_glob = ".csv|.CSV"
+
+# Directory relative to this file to accept new files to process. Will be created if absent
+inbox_dir = "01_inbox/"
+
+# Directory relative to this file to store files under process. Will be created if absent
+processing_dir = "02_processing"
+
+# Directory relative to this file to store previously processed files. Will be created if absent
+archive_dir = "03_archive"
+
+# Directory relative to this file to store files which failed processing. Will be created if needed
+error_dir = "04_failed"
+
+# Whether to store failed processing error output
+save_error_log = true
+
+[castiron.etl.python]
+worker_run_method = "lib_ray_worker.example.example_text_processor.process"
+supports_metadata = true
+
+[castiron.etl.python.static_kwargs]
+
+field1_param = "foobar"

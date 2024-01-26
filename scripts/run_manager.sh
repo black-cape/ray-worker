@@ -25,4 +25,4 @@ ray start --head --port $RAY_HEAD_PORT \
     --min-worker-port $RAY_MIN_WORKER_PORT --max-worker-port $RAY_MAX_WORKER_PORT \
     --disable-usage-stats --include-dashboard false
 
-uvicorn --host 0.0.0.0 --port 8002 etl.app_manager:app
+alembic upgrade head && poetry run python lib_ray_worker/entrypoint.py

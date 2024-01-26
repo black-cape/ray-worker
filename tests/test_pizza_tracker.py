@@ -1,13 +1,12 @@
 # pylint: skip-file
-from typing import Optional
-
-from etl.messaging.interfaces import MessageProducer
-from etl.pizza_tracker import PizzaTracker
+from lib_ray_worker.messaging.interfaces import MessageProducer
+from lib_ray_worker.pizza_tracker import PizzaTracker
 
 
 class MockMessageProducer(MessageProducer):
-
-    def job_created(self, job_id: str, filename: str, handler: str, uploader: str) -> None:
+    def job_created(
+        self, job_id: str, filename: str, handler: str, uploader: str
+    ) -> None:
         raise NotImplementedError
 
     def job_evt_task(self, job_id: str, task: str) -> None:
@@ -29,31 +28,31 @@ class MockMessageProducer(MessageProducer):
 
 def test_handle_task():
     message_producer = MockMessageProducer()
-    pt = PizzaTracker(message_producer, 'working_dir', 'job_id')
-    expected = 'this task'
+    pt = PizzaTracker(message_producer, "working_dir", "job_id")
+    expected = "this task"
     pt._handle_task(expected)
     assert expected == message_producer.task
-    assert 'job_id' == message_producer.job_id
+    assert "job_id" == message_producer.job_id
 
 
 def test_handle_committed():
     message_producer = MockMessageProducer()
-    pt = PizzaTracker(message_producer, 'working_dir', 'job_id')
+    pt = PizzaTracker(message_producer, "working_dir", "job_id")
     expected = 2713
     pt._handle_committed(str(expected))
     assert expected == message_producer.committed
-    assert 'job_id' == message_producer.job_id
+    assert "job_id" == message_producer.job_id
 
 
 def test_handle_progress():
     message_producer = MockMessageProducer()
-    pt = PizzaTracker(message_producer, 'working_dir', 'job_id')
-    expected = .4
-    pt._handle_progress('2 / 5')
+    pt = PizzaTracker(message_producer, "working_dir", "job_id")
+    expected = 0.4
+    pt._handle_progress("2 / 5")
     assert expected == message_producer.progress
-    assert 'job_id' == message_producer.job_id
+    assert "job_id" == message_producer.job_id
 
-    expected = .6
+    expected = 0.6
     pt._handle_progress(str(expected))
     assert expected == message_producer.progress
-    assert 'job_id' == message_producer.job_id
+    assert "job_id" == message_producer.job_id

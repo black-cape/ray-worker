@@ -8,6 +8,15 @@ services:
     env_file:
       - project.env
 
+  # DB to track status
+  postgres:
+    image: postgres:15.3
+    env_file:
+      - project.env
+    volumes:
+      - db_ray-worker:/var/lib/postgresql/data
+      - db_logs_ray-worker:/var/log
+
   # Object Storage
   minio:
     image: minio/minio:RELEASE.2023-10-07T15-07-38Z
@@ -28,15 +37,18 @@ services:
   ray_cast_iron_worker:
     build:
       context: .
-    container_name: ray-cast-iron-worker
     env_file:
       - project.env
     shm_size: '6gb'
     volumes:
-      - ./etl:/app/etl
+      - ./lib_ray_worker:/usr/src/app/lib_ray_worker
+      # only for local dev and only to support running and access to alembic migration file generation outside of container
+      - ./alembic:/usr/src/app/alembic
     depends_on:
       minio:
         condition: service_healthy
 
 volumes:
   data_mino_ray-worker:
+  db_ray-worker:
+  db_logs_ray-worker:
